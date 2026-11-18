@@ -1,0 +1,5 @@
+# Versiones exactas (M0L2: requirements.txt con versiones exactas).
+# Instalar con:  pip install -r requirements.txt
+openai==3.55.0
+google-genai==3.5.0
+python-dotenv==1.2.3

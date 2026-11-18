@@ -1,0 +1,42 @@
+# =====================================================================
+# Solo se suben al repo los archivos de desarrollo.
+# =====================================================================
+
+# --- Credenciales (M0L2: el .env nunca se sube) ---
+.env
+.env.*
+!.env.example
+
+# --- Entorno virtual (M0L2: venv aísla dependencias; se recrea con requirements.txt) ---
+.venv/
+venv/
+env/
+
+# --- Archivos generados por Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+build/
+dist/
+
+# --- Editores y sistema operativo (Windows 11) ---
+.vscode/
+.idea/
+*.code-workspace
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
+
+# --- Datos ---
+# data/metrics.jsonl SÍ se sube: la consigna del PI pide "al menos una
+# ejecución de la CLI registrada que produzca JSON válido y una línea de
+# métricas". No contiene texto de consultas ni claves (ver docs/DECISIONES.md).
+data/*
+!data/.gitkeep
+!data/metrics.jsonl

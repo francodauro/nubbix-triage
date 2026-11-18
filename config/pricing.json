@@ -1,0 +1,10 @@
+{
+  "_fuente": "Precios en USD por 1M de tokens. gpt-6-luna: página del modelo en developers.openai.com (consultada el 18/11/2026). gpt-4.1-mini: tabla de M1L1 (verificada por Henry en 2026-09). Gemini: plan gratuito de la API de Gemini (ai.google.dev/pricing), costo 0 mientras el proyecto de Google no tenga facturación activada. Revisar vigencia antes de usar (M1L1: 'cambian con frecuencia').",
+  "_notas": "gpt-4.1-nano se quitó: OpenAI lo dio de baja (404 'has been deprecated' el 18/11/2026). gpt-4.1-mini queda solo como referencia del hands-on de Henry; OpenAI lo apaga el 14/01/2027.",
+  "_actualizado": "2026-11-18",
+  "models": {
+    "gpt-6-luna": {"input": 0.10, "output": 0.50},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gemini-3.5-flash-lite": {"input": 0.0, "output": 0.0}
+  }
+}
