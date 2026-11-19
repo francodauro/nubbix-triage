@@ -46,10 +46,21 @@ class Router:
         if self._on_failure is not None:
             self._on_failure(provider_name, exc)
 
-    def ask(self, prompt: str, system: str, *, prompt_version: str, on_token: TokenCallback | None = None) -> LLMResponse:
+    def ask(
+        self,
+        prompt: str,
+        system: str,
+        *,
+        prompt_version: str,
+        on_token: TokenCallback | None = None,
+        extra_fields: Callable[[LLMResponse], dict] | None = None,
+    ) -> LLMResponse:
         """Pide la respuesta al primer proveedor disponible, en orden.
 
         Cada intento (exitoso o fallido) queda en ``data/metrics.jsonl``.
+        ``extra_fields`` recibe la respuesta exitosa y devuelve campos para agregar a su línea
+        de métricas (ej. cómo se parseó la categoría, D-44). Nunca debe devolver texto del
+        cliente ni del modelo (M1L4).
         """
         errors: list[Exception] = []
         for index, provider in enumerate(self.providers):
@@ -114,6 +125,8 @@ class Router:
             }
             if response.ttft_s is not None:
                 record["ttft_s"] = round(response.ttft_s, 3)  # M1L1 · Streaming: latencia percibida
+            if extra_fields is not None:
+                record.update(extra_fields(response))
             self.metrics.append(record)
             return response
 

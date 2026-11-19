@@ -1,0 +1,81 @@
+﻿version,id,lote,esperada,obtenida,acierto,valida,metodo,regla,tokens_in,tokens_out,latencia_s,error,respuesta
+triage_v1,NX-001,dev,billing,billing,True,True,texto,,114,1,9.397,,billing
+triage_v1,NX-002,dev,technical,technical,True,True,texto,,108,1,15.927,,technical
+triage_v1,NX-003,dev,account,technical,False,True,texto,,113,1,8.288,,technical
+triage_v1,NX-004,dev,other,billing,False,True,texto,R5,102,1,8.933,,billing
+triage_v1,NX-005,dev,technical,technical,True,True,texto,R2,110,1,8.513,,technical
+triage_v1,NX-006,dev,billing,billing,True,True,texto,R1,109,1,9.269,,billing
+triage_v1,NX-007,dev,account,account,True,True,texto,R3,104,1,3.711,,account
+triage_v1,NX-008,dev,billing,billing,True,True,texto,R5,114,1,8.482,,billing
+triage_v1,NX-009,dev,other,technical,False,True,texto,,107,1,4.571,,technical
+triage_v1,NX-010,dev,technical,technical,True,True,texto,R2,113,1,9.458,,technical
+triage_v1,NX-011,holdout,billing,billing,True,True,texto,,105,1,19.213,,billing
+triage_v1,NX-012,holdout,technical,technical,True,True,texto,,106,1,8.944,,technical
+triage_v1,NX-013,holdout,account,account,True,True,texto,,109,1,3.228,,account
+triage_v1,NX-014,holdout,other,billing,False,True,texto,R5,107,1,9.032,,billing
+triage_v1,NX-015,holdout,billing,billing,True,True,texto,R1,117,1,3.86,,billing
+triage_v1,NX-016,holdout,technical,technical,True,True,texto,R3,108,1,8.057,,technical
+triage_v1,NX-017,holdout,account,account,True,True,texto,R3,108,1,7.642,,account
+triage_v1,NX-018,holdout,other,other,True,True,texto,,99,1,8.591,,other
+triage_v1,NX-019,holdout,billing,billing,True,True,texto,R1,108,1,1.752,,billing
+triage_v1,NX-020,holdout,technical,technical,True,True,texto,R2,108,1,2.068,,technical
+triage_v2,NX-001,dev,billing,billing,True,True,json,,315,6,9.035,,"{""category"": ""billing""}"
+triage_v2,NX-002,dev,technical,technical,True,True,json,,309,6,9.106,,"{""category"": ""technical""}"
+triage_v2,NX-003,dev,account,account,True,True,json,,314,6,8.206,,"{""category"": ""account""}"
+triage_v2,NX-004,dev,other,billing,False,True,json,R5,303,6,7.463,,"{""category"": ""billing""}"
+triage_v2,NX-005,dev,technical,technical,True,True,json,R2,311,6,9.029,,"{""category"": ""technical""}"
+triage_v2,NX-006,dev,billing,billing,True,True,json,R1,310,6,8.785,,"{""category"": ""billing""}"
+triage_v2,NX-007,dev,account,account,True,True,json,R3,305,6,8.141,,"{""category"": ""account""}"
+triage_v2,NX-008,dev,billing,billing,True,True,json,R5,315,6,9.051,,"{""category"": ""billing""}"
+triage_v2,NX-009,dev,other,other,True,True,json,,308,6,8.93,,"{""category"": ""other""}"
+triage_v2,NX-010,dev,technical,technical,True,True,json,R2,314,6,9.288,,"{""category"": ""technical""}"
+triage_v2,NX-011,holdout,billing,billing,True,True,json,,306,6,3.496,,"{""category"": ""billing""}"
+triage_v2,NX-012,holdout,technical,technical,True,True,json,,307,6,8.304,,"{""category"": ""technical""}"
+triage_v2,NX-013,holdout,account,account,True,True,json,,310,6,18.514,,"{""category"": ""account""}"
+triage_v2,NX-014,holdout,other,other,True,True,json,R5,308,6,10.851,,"{""category"": ""other""}"
+triage_v2,NX-015,holdout,billing,billing,True,True,json,R1,318,6,9.26,,"{""category"": ""billing""}"
+triage_v2,NX-016,holdout,technical,technical,True,True,json,R3,309,6,5.741,,"{""category"": ""technical""}"
+triage_v2,NX-017,holdout,account,account,True,True,json,R3,309,6,7.959,,"{""category"": ""account""}"
+triage_v2,NX-018,holdout,other,other,True,True,json,,300,6,9.345,,"{""category"": ""other""}"
+triage_v2,NX-019,holdout,billing,billing,True,True,json,R1,309,6,9.21,,"{""category"": ""billing""}"
+triage_v2,NX-020,holdout,technical,technical,True,True,json,R2,309,6,8.965,,"{""category"": ""technical""}"
+triage_v3,NX-001,dev,billing,billing,True,True,json,,348,6,9.351,,"{""category"": ""billing""}"
+triage_v3,NX-002,dev,technical,technical,True,True,json,,342,6,7.403,,"{""category"": ""technical""}"
+triage_v3,NX-003,dev,account,account,True,True,json,,347,6,8.431,,"{""category"": ""account""}"
+triage_v3,NX-004,dev,other,billing,False,True,json,R5,336,6,8.601,,"{""category"": ""billing""}"
+triage_v3,NX-005,dev,technical,technical,True,True,json,R2,344,6,8.586,,"{""category"": ""technical""}"
+triage_v3,NX-006,dev,billing,billing,True,True,json,R1,343,6,8.463,,"{""category"": ""billing""}"
+triage_v3,NX-007,dev,account,account,True,True,json,R3,338,6,8.986,,"{""category"": ""account""}"
+triage_v3,NX-008,dev,billing,billing,True,True,json,R5,348,6,9.283,,"{""category"": ""billing""}"
+triage_v3,NX-009,dev,other,other,True,True,json,,341,6,7.635,,"{""category"": ""other""}"
+triage_v3,NX-010,dev,technical,technical,True,True,json,R2,347,6,9.267,,"{""category"": ""technical""}"
+triage_v3,NX-011,holdout,billing,billing,True,True,json,,339,6,10.367,,"{""category"": ""billing""}"
+triage_v3,NX-012,holdout,technical,technical,True,True,json,,340,6,8.943,,"{""category"": ""technical""}"
+triage_v3,NX-013,holdout,account,account,True,True,json,,343,6,8.844,,"{""category"": ""account""}"
+triage_v3,NX-014,holdout,other,other,True,True,json,R5,341,6,8.593,,"{""category"": ""other""}"
+triage_v3,NX-015,holdout,billing,billing,True,True,json,R1,351,6,8.574,,"{""category"": ""billing""}"
+triage_v3,NX-016,holdout,technical,technical,True,True,json,R3,342,6,7.044,,"{""category"": ""technical""}"
+triage_v3,NX-017,holdout,account,account,True,True,json,R3,342,6,8.708,,"{""category"": ""account""}"
+triage_v3,NX-018,holdout,other,other,True,True,json,,333,6,7.807,,"{""category"": ""other""}"
+triage_v3,NX-019,holdout,billing,billing,True,True,json,R1,342,6,9.524,,"{""category"": ""billing""}"
+triage_v3,NX-020,holdout,technical,technical,True,True,json,R2,342,6,4.556,,"{""category"": ""technical""}"
+triage_v4,NX-001,dev,billing,billing,True,True,linea_final,,371,68,17.762,,"Tema: Cobro duplicado en la tarjeta de crédito por la cuota de noviembre. | Pide: La devolución de uno de los cobros realizados por Nubbix. | Decisión: Pertenece a billing porque trata sobre cobros, débitos y devoluciones de dinero de la suscripción. | CATEGORIA: billing"
+triage_v4,NX-002,dev,technical,technical,True,True,linea_final,,365,70,4.504,,Tema: Fallas en la generación del reporte de ventas mensual en la plataforma. | Pide: Solución a un error técnico donde la herramienta de reportes se queda congelada y no responde. | Decisión: Pertenece a technical porque se trata de un mal funcionamiento de la plataforma que impide usar una función. | CATEGORIA: technical
+triage_v4,NX-003,dev,account,account,True,True,linea_final,,370,64,7.927,,"Tema: Gestión de permisos y roles de usuario para una nueva empleada. | Pide: Instrucciones o configuración para limitar el acceso a reportes de costos dentro de la plataforma. | Decisión: Pertenece a account porque trata sobre accesos, roles y permisos de la cuenta. | CATEGORIA: account"
+triage_v4,NX-004,dev,other,other,True,True,linea_final,R5,359,51,8.239,,"Tema: Consulta sobre tarifas y planes anuales con descuento. | Pide: Información comercial sobre descuentos por pago anual anticipado. | Decisión: Se refiere al modelo comercial y contratos, por lo que va en ""other"". | CATEGORIA: other"
+triage_v4,NX-005,dev,technical,technical,True,True,linea_final,R2,367,78,10.702,,Tema: Problema al emitir una factura electrónica en la plataforma debido a un error de conexión con un ente externo (ARCA). | Pide: Solucionar una falla técnica que impide el funcionamiento correcto de la emisión de facturas. | Decisión: Pertenece a technical porque se trata de un fallo operativo de la plataforma al realizar una acción. | CATEGORIA: technical
+triage_v4,NX-006,dev,billing,billing,True,True,linea_final,R1,366,67,7.852,,Tema: Disminución de usuarios y cobro en la factura actual. | Pide: Un ajuste o aclaración en el monto facturado por Nubbix debido a una baja previa. | Decisión: billing porque se trata de un reclamo sobre cobros y la factura emitida por la plataforma. | CATEGORIA: billing
+triage_v4,NX-007,dev,account,account,True,True,linea_final,R3,361,65,7.659,,"Tema: Bloqueo de usuario por exceso de intentos de inicio de sesión. | Pide: Desbloquear su usuario o recuperar el acceso a su cuenta en la plataforma. | Decisión: Pertenece a account porque se trata de accesos, inicio de sesión y estado del usuario. | CATEGORIA: account"
+triage_v4,NX-008,dev,billing,billing,True,True,linea_final,R5,371,65,7.865,,Tema: Cambio de plan de suscripción en Nubbix | Pide: Instrucciones sobre dónde realizar el cambio de plan y cómo se calcula el cobro de la diferencia | Decisión: Pertenece a billing porque trata sobre los cobros y planes contratados del servicio de Nubbix | CATEGORIA: billing
+triage_v4,NX-009,dev,other,other,True,True,linea_final,,364,65,7.752,,"Tema: Información sobre las funcionalidades del sistema para múltiples sucursales. | Pide: Conocer si Nubbix permite gestionar el inventario de dos ubicaciones simultáneamente. | Decisión: Pertenece a información comercial general sobre las capacidades del producto, por lo que va en other. | CATEGORIA: other"
+triage_v4,NX-010,dev,technical,technical,True,True,linea_final,R2,370,63,6.89,,Tema: Desconexión de la integración con Mercado Pago y fallo en el registro de cobros. | Pide: Solucionar un problema de funcionamiento en una integración externa dentro de la plataforma. | Decisión: Pertenece al equipo técnico porque una integración no funciona como debería. | CATEGORIA: technical
+triage_v4,NX-011,holdout,billing,billing,True,True,linea_final,,362,72,8.122,,Tema: Solicitud de la factura del mes de octubre emitida por Nubbix. | Pide: Un comprobante o documento de cobro/facturación generado por Nubbix para su contabilidad. | Decisión: Pertenece a billing porque trata sobre las facturas que Nubbix le cobra al cliente. | CATEGORIA: billing
+triage_v4,NX-012,holdout,technical,technical,True,True,linea_final,,363,66,9.338,,Tema: Falla en la aplicación móvil de Nubbix tras la última actualización. | Pide: Solucionar un error técnico donde la app se cierra sola al usar el módulo de inventario. | Decisión: Pertenece a technical porque se trata de un mal funcionamiento de la plataforma. | CATEGORIA: technical
+triage_v4,NX-013,holdout,account,account,True,True,linea_final,,366,66,9.413,,"Tema: Cambio del correo electrónico del usuario administrador de la cuenta en Nubbix. | Pide: Modificar las credenciales de acceso y datos de la cuenta por salida de personal. | Decisión: Pertenece a la gestión de accesos, usuarios y datos de la cuenta del cliente. | CATEGORIA: account"
+triage_v4,NX-014,holdout,other,other,True,True,linea_final,R5,364,68,8.076,,"Tema: Empresa de 80 empleados consultando por planes y precios especiales. | Pide: Información sobre planes corporativos y precios para empresas grandes, que es una consulta comercial. | Decisión: La consulta busca información sobre planes y precios generales de ventas, por lo que corresponde a la categoría ""other"". | CATEGORIA: other"
+triage_v4,NX-015,holdout,billing,billing,True,True,linea_final,R1,374,71,9.398,,Tema: Cobro del plan Pro sin acceso a sus funciones y solicitud de devolución o activación. | Pide: Resolver un problema de cobro y pago de suscripción de Nubbix. | Decisión: Pertenece a billing porque se relaciona directamente con el cobro de la suscripción y el plan contratado. | CATEGORIA: billing
+triage_v4,NX-016,holdout,technical,technical,True,True,linea_final,R3,365,69,4.189,,Tema: El sistema Nubbix no carga y muestra un error de servicio no disponible en toda la oficina. | Pide: Saber si la plataforma está caída y solucionar un fallo general de acceso al sistema. | Decisión: Pertenece a technical porque se trata de una falla en el funcionamiento de la plataforma. | CATEGORIA: technical
+triage_v4,NX-017,holdout,account,account,True,True,linea_final,R3,365,54,5.973,,Tema: Problemas para iniciar sesión por pérdida de contraseña. | Pide: Recuperar el acceso a su cuenta porque no recibe el correo. | Decisión: Corresponde a account ya que trata sobre accesos y contraseñas. | CATEGORIA: account
+triage_v4,NX-018,holdout,other,other,True,True,linea_final,,356,74,19.017,,"Tema: El cliente pregunta por el horario de atención telefónica del soporte de Nubbix. | Pide: Información sobre el servicio de atención al cliente o general de la empresa. | Decisión: La categoría es ""other"" porque es una consulta de información general que no trata sobre cobros, fallas técnicas ni gestión de cuentas. | CATEGORIA: other"
+triage_v4,NX-019,holdout,billing,billing,True,True,linea_final,R1,365,69,8.973,,"Tema: Facturación y cobro en moneda incorrecta (USD en lugar de ARS). | Pide: Corrección del cargo y de la última factura emitida por Nubbix. | Decisión: Pertenece a billing porque se refiere directamente a cobros, moneda y facturación de Nubbix. | CATEGORIA: billing"
+triage_v4,NX-020,holdout,technical,technical,True,True,linea_final,R2,365,74,16.322,,"Tema: Discrepancia entre los datos exportados a Excel y los mostrados en pantalla en el libro de IVA. | Pide: Solución a un fallo o error en la generación de reportes dentro de la plataforma. | Decisión: Se clasifica como technical porque un reporte no funciona como debería, mostrando datos incorrectos. | CATEGORIA: technical"

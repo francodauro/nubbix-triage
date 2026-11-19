@@ -47,6 +47,8 @@ class Settings:
     pricing_path: Path
     metrics_path: Path
     prompts_dir: Path
+    # Versión del prompt por defecto (prompts/<version>.yaml); la CLI la pisa con --prompt (D-43, D-48).
+    prompt_version: str = "triage_v2"
 
 
 def _get(name: str, default: str) -> str:
@@ -116,4 +118,5 @@ def load_settings(env_file: Path | None = None) -> Settings:
         pricing_path=PROJECT_ROOT / "config" / "pricing.json",
         metrics_path=PROJECT_ROOT / "data" / "metrics.jsonl",
         prompts_dir=PROJECT_ROOT / "prompts",
+        prompt_version=_get("PROMPT_VERSION", "triage_v2"),
     )

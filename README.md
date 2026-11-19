@@ -5,7 +5,7 @@ Proyecto integrador del Módulo 1 de la carrera **AI Engineering de Henry** (coh
 
 Recibe la consulta de un cliente en texto libre y la clasifica en `billing`, `technical`, `account` u `other`, usando un LLM gratuito con respaldo pago y registrando tokens, latencia y costo de cada llamada.
 
-> **Estado actual: etapa M1L1 completa** (cliente multi-proveedor, reintentos, streaming con TTFT, costo, proyección a 10.000 consultas y presupuesto).
+> **Estado actual: etapa M1L2 completa** (prompts versionados en YAML con changelog, 4 versiones comparadas sobre un set etiquetado; vigente `triage_v2`). M1L1: cliente multi-proveedor, reintentos, streaming con TTFT, costo, proyección a 10.000 consultas y presupuesto.
 > Lo que falta para cumplir la consigna completa está en [docs/ROADMAP.md](docs/ROADMAP.md).
 > Cada decisión y su fuente en el material de Henry están en [docs/DECISIONES.md](docs/DECISIONES.md).
 
@@ -33,7 +33,44 @@ consulta ──► Gemini (gratis) ──ok──► respuesta + métricas
 
 ### ¿Cuánto cuesta?
 
-Una clasificación usa unos 120 tokens de entrada y menos de 10 de salida. Con `gpt-6-luna` eso es alrededor de **USD 0.000016 por consulta**, y solo se paga cuando Gemini falla. Con USD 4.50 alcanza para cientos de miles de consultas pagas.
+Con el prompt vigente (`triage_v2`) una clasificación usa unos 310 tokens de entrada y 6 de salida. Con `gpt-6-luna` eso es alrededor de **USD 0.000034 por consulta** (USD 0.34 cada 10.000), y solo se paga cuando Gemini falla. Con USD 4.50 alcanza para más de cien mil consultas pagas.
+
+---
+
+## Prompts y context engineering (M1L2)
+
+Los prompts viven en `prompts/triage_vN.yaml`, fuera del código. Cada versión es un archivo nuevo que **nunca se edita**; qué cambió, por qué y qué resultado dio está en [prompts/CHANGELOG.md](prompts/CHANGELOG.md).
+
+| Versión | Técnica | Qué agrega |
+|---|---|---|
+| `triage_v1` | zero-shot | Línea base: rol, las 4 categorías con `other`, respuesta de una palabra (migración del `.txt` de M1L1) |
+| `triage_v2` ✅ | zero-shot con los 4 principios | Rol, contexto, tarea y formato; consulta entre `<consulta>…</consulta>`; categorías con descripción inyectadas desde el código; salida `{"category": "..."}` |
+| `triage_v3` | few-shot | v2 + un ejemplo armado con el único error de v2 en dev (descartada: no cambió nada) |
+| `triage_v4` | chain-of-thought | v2 + razonamiento `Tema` / `Pide` / `Decisión` y última línea `CATEGORIA: <valor>` |
+
+**Plantilla y variables.** El YAML tiene la plantilla fija (`system` y `user`); en cada consulta `src/prompts.py` completa `{empresa}`, `{categorias}` (de `CATEGORIES`, única fuente de verdad) y `{consulta}`. Las llaves literales del JSON van dobles (`{{ }}`); si una plantilla usa una variable desconocida, el error aparece al cargarla, antes de llamar al modelo.
+
+**Lectura de la respuesta.** `src/parsing.py` busca la categoría en este orden: JSON → última línea `CATEGORIA:` → respuesta de una sola palabra → nombre válido suelto en el texto, y registra el método usado. Si la categoría es inválida, la CLI avisa (el reintento llega en M1L3).
+
+### Comparación de versiones
+
+```powershell
+python -m src.comparar                        # todas las versiones, con Gemini (gratis)
+python -m src.comparar --versiones v2 v4      # solo algunas
+```
+
+Usa el set etiquetado `evals/dataset.jsonl` (20 consultas: 10 **dev** para diseñar y 10 **holdout** para medir al final; reglas en [evals/guia_etiquetado.md](evals/guia_etiquetado.md)), con un solo proveedor fijo y sin fallback, y genera [docs/comparacion_versiones.md](docs/comparacion_versiones.md) + `docs/comparacion_detalle.csv`.
+
+Resultados del 19/11/2026 (Gemini `gemini-3.5-flash-lite`, temperature 0; segunda corrida):
+
+| Versión | Exactitud dev | Exactitud holdout | Inválidas | Tokens entrada / salida | USD × 10.000 con `gpt-6-luna` |
+|---|---|---|---:|---|---:|
+| triage_v1 | 70 % | 90 % | 0 | 108 / 1 | 0.11 |
+| **triage_v2** | 90 % | **100 %** | 0 | 309 / 6 | **0.34** |
+| triage_v3 | 90 % | 100 % | 0 | 342 / 6 | 0.37 |
+| triage_v4 | 100 % | 100 % | 0 | 365 / 67 | 0.70 |
+
+**Técnica elegida: `triage_v2` (zero-shot con los 4 principios).** En holdout empata con v3 y v4, es la más barata de las tres y dio las mismas respuestas en las dos corridas. Few-shot (v3) no cambió ninguna respuesta. Chain-of-thought (v4) cuesta el doble y su único acierto extra (NX-004 en dev) cambió entre corridas, así que no es estable. **Es una elección provisional**: con 20 casos, un caso son 10 puntos; la decisión con datos se repite en M1L5 con ≥30 casos y score por categoría.
 
 ---
 
@@ -91,8 +128,11 @@ notepad .env
 Siempre desde la raíz del proyecto y con el entorno virtual activo:
 
 ```powershell
-# Clasificar una consulta
+# Clasificar una consulta (con el prompt de PROMPT_VERSION, por defecto triage_v2)
 python -m src.main "me cobraron dos veces la suscripción de este mes"
+
+# Elegir otra versión del prompt sin tocar código
+python -m src.main --prompt v4 "no puedo entrar, mi usuario está bloqueado"
 
 # Ver la respuesta a medida que se genera
 python -m src.main --stream "el dashboard de reportes me tira error 500"
@@ -109,6 +149,9 @@ Ejemplo de respuesta:
 ```json
 {
   "category": "billing",
+  "category_valid": true,
+  "parse_method": "json",
+  "prompt_version": "triage_v2",
   "provider": "gemini",
   "model": "gemini-3.5-flash-lite",
   "prompt_tokens": 84,
@@ -120,6 +163,7 @@ Ejemplo de respuesta:
 ```
 
 > Los números son ilustrativos. El contrato final `{answer, confidence, category, actions}` se implementa en la etapa M1L3.
+> Con `--prompt v4` se agrega `model_output` con el razonamiento completo del modelo (solo en pantalla; nunca se guarda en las métricas).
 > Con `--stream` se agrega `ttft_s`: segundos hasta que apareció el primer fragmento (la latencia que percibe el usuario, M1L1).
 
 Ejemplo de `--gasto`:
@@ -157,7 +201,7 @@ Códigos de salida: `0` ok · `2` error de configuración o consulta vacía · `
 {"timestamp": "2026-11-18T12:42:41+00:00", "provider": "gemini", "model": "gemini-3.5-flash-lite", "temperature": 0.0, "prompt_version": "triage_v1", "stream": false, "fallback": false, "status": "ok", "attempts": 1, "prompt_tokens": 84, "completion_tokens": 2, "total_tokens": 86, "latency_s": 0.612, "cost_usd": 0.0}
 ```
 
-En modo `--stream` la línea incluye además `ttft_s`.
+En modo `--stream` la línea incluye además `ttft_s`. Desde M1L2, las llamadas exitosas registran también `parse_method` (cómo se leyó la categoría) y `category_valid`.
 
 `status` puede ser `ok`, `error` (con `error_kind`: `rate_limit`, `server_error`, `timeout`, `auth_error`…) o `skipped` (presupuesto agotado).
 
@@ -171,7 +215,7 @@ Usan proveedores falsos: no llaman a ninguna API ni gastan cuota.
 python -m unittest discover -s tests -v
 ```
 
-Son 19 pruebas. Cubren: uso del gratuito, fallback al pago, bloqueo por presupuesto, respeto de `Retry-After`, backoff con jitter, errores no reintentables, streaming parcial, campos de las métricas (incluida la `temperature`), TTFT en streaming, proyección de costo a 10.000 consultas, aviso cuando falla un proveedor y parámetros enviados a OpenAI (`max_completion_tokens`, `reasoning_effort`).
+Son 46 pruebas. Las 27 de M1L2 (`tests/test_prompts.py`) cubren: carga y validación de los YAML (versión inexistente, campo faltante, variable mal escrita, llaves del JSON), que todas las versiones listen las 4 categorías, la separación plantilla/variables, el parser (JSON, última línea, una palabra, heurística, categoría inventada), la elección de versión por `--prompt` y su registro en las métricas, y el resumen del comparador. Las 19 de M1L1 (`tests/test_router.py`) cubren: uso del gratuito, fallback al pago, bloqueo por presupuesto, respeto de `Retry-After`, backoff con jitter, errores no reintentables, streaming parcial, campos de las métricas (incluida la `temperature`), TTFT en streaming, proyección de costo a 10.000 consultas, aviso cuando falla un proveedor y parámetros enviados a OpenAI (`max_completion_tokens`, `reasoning_effort`).
 
 ---
 
@@ -192,6 +236,7 @@ Son 19 pruebas. Cubren: uso del gratuito, fallback al pago, bloqueo por presupue
 | `LLM_MAX_WAIT_SECONDS` | `10` | Espera máxima aceptada antes de pasar al respaldo |
 | `LLM_TIMEOUT_SECONDS` | `30` | Timeout por llamada |
 | `BUDGET_USD` | `4.50` | Tope de gasto acumulado del proveedor pago |
+| `PROMPT_VERSION` | `triage_v2` | Versión del prompt (`prompts/<version>.yaml`); `--prompt` la pisa en cada ejecución |
 
 Si cambiás un modelo, agregá su precio en `config/pricing.json`; si falta, la CLI no arranca (así el costo siempre es auditable).
 
@@ -207,9 +252,13 @@ nubbix-triage/
 ├── config/
 │   └── pricing.json      precios por modelo (USD por 1M de tokens)
 ├── prompts/
-│   └── triage_v1.txt     prompt de clasificación (provisional; pasa a YAML en L2)
+│   ├── triage_v1.yaml … triage_v4.yaml   versiones del prompt (nunca se editan)
+│   └── CHANGELOG.md      qué cambió, por qué y resultado medido
 ├── src/
 │   ├── main.py           CLI
+│   ├── prompts.py        carga de los YAML, categorías y plantilla + variables
+│   ├── parsing.py        extracción de la categoría de la respuesta
+│   ├── comparar.py       comparación de versiones sobre el set etiquetado
 │   ├── config.py         lectura y validación del .env
 │   ├── costs.py          cálculo de costo
 │   ├── metrics.py        registro en data/metrics.jsonl
@@ -221,11 +270,15 @@ nubbix-triage/
 │       ├── factory.py    arma los proveedores según el .env
 │       └── router.py     fallback + presupuesto + métricas
 ├── tests/                tests con unittest
-├── evals/                (L5) dataset y runner de evals
+├── evals/
+│   ├── dataset.jsonl     20 consultas etiquetadas (dev/holdout; se amplía en L5)
+│   └── guia_etiquetado.md  categorías y reglas de desempate
 ├── data/                 metrics.jsonl
 └── docs/
     ├── DECISIONES.md     cada decisión con su fuente en Henry
-    └── ROADMAP.md        consigna del PI vs. estado
+    ├── ROADMAP.md        consigna del PI vs. estado
+    ├── comparacion_versiones.md  reporte de la comparación de prompts
+    └── comparacion_detalle.csv   detalle por consulta y versión
 ```
 
 ## Subir a Git
@@ -244,17 +297,20 @@ git commit -m "feat: cliente multi-proveedor con fallback y presupuesto (M1L1)"
 - **Por qué Gemini como primario**: tiene plan gratuito y el objetivo es gastar menos de USD 5 en el curso. La consigna pide dos proveedores, "por ejemplo OpenAI y Anthropic"; Anthropic no es gratuito.
 - **Por qué gpt-6-luna y no lo que dice Henry**: M1L1 propone `gpt-4.1-mini`/`gpt-4.1-nano`, pero OpenAI dio de baja `gpt-4.1-nano` (las métricas registraron un `bad_request` el 18/11/2026 y el mensaje fue "404 model deprecated"). `gpt-6-luna` es el reemplazo que recomienda OpenAI y cuesta casi lo mismo. Se probó antes de adoptarlo: con `reasoning_effort="none"` acepta `temperature=0` y no gasta tokens de razonamiento.
 - **Por qué temperature 0**: clasificar no es creativo; el mismo ticket tiene que recibir siempre la misma categoría (M1L1).
+- **Por qué `triage_v2`**: ver "Comparación de versiones" arriba y [prompts/CHANGELOG.md](prompts/CHANGELOG.md).
+- **Por qué hay un set etiquetado ya en L2**: el ejemplo de L2 del profesor (caso OrbitAir) compara las versiones sobre 20 consultas en lotes dev/holdout. Es provisional y se amplía en L5.
 - **Por qué no hay circuit breaker todavía**: la CLI procesa una consulta por ejecución y no guarda estado; se evalúa si se hace la API con FastAPI.
 
 El detalle completo, con la lección de Henry que respalda cada punto, está en [docs/DECISIONES.md](docs/DECISIONES.md).
 
 ## Uso de IA en el desarrollo
 
-La consigna pide documentar el uso de herramientas de IA. La estructura inicial y el código de la etapa M1L1 se armaron con asistencia de Claude (Anthropic), a partir de la consigna del PI y las lecciones de Henry, y fueron revisados por el alumno.
+La consigna pide documentar el uso de herramientas de IA. La estructura inicial y el código de las etapas M1L1 y M1L2 se armaron con asistencia de Claude (Anthropic), a partir de la consigna del PI, las lecciones de Henry y el repo de ejemplo del profesor, y fueron revisados por el alumno. En M1L2, Claude redactó las consultas del set y propuso sus etiquetas; el alumno las revisó y confirmó antes de la primera corrida.
 
 ## Limitaciones conocidas
 
-- La salida todavía no es el contrato JSON de la consigna (llega en M1L3).
-- No hay guardrails de seguridad (llegan en M1L4) ni evals (M1L5).
+- La salida todavía no es el contrato JSON de la consigna (llega en M1L3); una categoría inválida se avisa pero no se reintenta.
+- La comparación de prompts usa solo 20 casos: la elección de `triage_v2` es provisional hasta M1L5.
+- No hay guardrails de seguridad (llegan en M1L4) ni la suite de evals completa (M1L5).
 - Si se borra `data/metrics.jsonl`, el contador de presupuesto vuelve a cero.
 - El plan gratuito de Gemini puede usar lo que se le envía para mejorar los productos de Google: no enviar datos reales de clientes.

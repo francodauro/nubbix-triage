@@ -3,3 +3,5 @@
 openai==3.55.0
 google-genai==3.5.0
 python-dotenv==1.2.3
+# Lectura de los prompts versionados en YAML (M1L2 / PI; D-35). Se usa yaml.safe_load.
+PyYAML==6.0.3

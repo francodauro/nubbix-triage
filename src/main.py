@@ -3,11 +3,12 @@
 Uso (desde la raíz del proyecto, con el entorno virtual activo):
     python -m src.main "me cobraron dos veces la suscripción"
     python -m src.main --stream "no me llega la factura de agosto"
+    python -m src.main --prompt v2 "quiero agregar un usuario de solo lectura"
     python -m src.main --gasto
 
-Estado: etapa M1L1. Devuelve la categoría como texto + métricas de la llamada.
-El contrato JSON final {answer, confidence, category, actions} llega con M1L3
-(ver docs/ROADMAP.md).
+Estado: etapa M1L2. Devuelve la categoría (extraída de la respuesta según el formato de cada
+versión del prompt) + métricas de la llamada. El contrato JSON final
+{answer, confidence, category, actions} llega con M1L3 (ver docs/ROADMAP.md).
 """
 
 from __future__ import annotations
@@ -22,8 +23,8 @@ from .llm.base import AllProvidersFailedError
 from .llm.factory import build_providers
 from .llm.router import Router
 from .metrics import MetricsLog
-
-PROMPT_VERSION = "triage_v1"
+from .parsing import metrics_fields, parse_category
+from .prompts import PromptError, load_prompt, render_system, render_user
 
 # Códigos de salida de la CLI
 EXIT_OK = 0
@@ -37,6 +38,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--stream", action="store_true", help="Muestra la respuesta a medida que se genera (M1L1 · Streaming).")
     parser.add_argument("--gasto", action="store_true",
                         help="Muestra el gasto acumulado, el presupuesto y la proyección de costo, y termina.")
+    parser.add_argument("--prompt", metavar="VERSION",
+                        help="Versión del prompt (ej. v2 o triage_v2). Por defecto, PROMPT_VERSION del .env (M1L2).")
     parser.add_argument("--consultas", type=int, default=10_000,
                         help="Cantidad de consultas para la proyección de --gasto (por defecto 10000, como en M1L1).")
     return parser.parse_args(argv)
@@ -70,6 +73,15 @@ def main(argv: list[str] | None = None) -> int:
         print("Error: la consulta no puede estar vacía.", file=sys.stderr)
         return EXIT_CONFIG
 
+    try:
+        template = load_prompt(args.prompt or settings.prompt_version, settings.prompts_dir)
+    except PromptError as exc:
+        print(f"Error de configuración: {exc}", file=sys.stderr)
+        return EXIT_CONFIG
+    # M1L2 · Variables de contexto: la plantilla versionada + los datos de este request.
+    system = render_system(template)
+    user_message = render_user(template, args.consulta)
+
     providers, warnings = build_providers(settings)
     for w in warnings:
         print(f"Aviso: {w}", file=sys.stderr)
@@ -80,7 +92,6 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Error de configuración: {exc}", file=sys.stderr)
         return EXIT_CONFIG
 
-    system = (settings.prompts_dir / f"{PROMPT_VERSION}.txt").read_text(encoding="utf-8")
     def warn_failure(provider_name: str, exc: Exception) -> None:
         kind = getattr(exc, "kind", "budget_exceeded")
         print(f"Aviso: falló {provider_name} ({kind}): {exc}", file=sys.stderr)
@@ -101,7 +112,13 @@ def main(argv: list[str] | None = None) -> int:
             print(piece, end="", flush=True, file=sys.stderr)
 
     try:
-        resp = router.ask(args.consulta.strip(), system, prompt_version=PROMPT_VERSION, on_token=on_token)
+        resp = router.ask(
+            user_message,
+            system,
+            prompt_version=template.version,
+            on_token=on_token,
+            extra_fields=lambda r: metrics_fields(r.text),
+        )
     except AllProvidersFailedError as exc:
         if args.stream:
             print(file=sys.stderr)
@@ -111,8 +128,15 @@ def main(argv: list[str] | None = None) -> int:
     if args.stream:
         print(file=sys.stderr)
 
+    parsed = parse_category(resp.text)
+    if not parsed.valid:
+        print(f"Aviso: no se obtuvo una categoría válida (método: {parsed.method}). "
+              "El reintento ante respuestas inválidas llega en M1L3.", file=sys.stderr)
     result = {
-        "category": resp.text,
+        "category": parsed.category,
+        "category_valid": parsed.valid,
+        "parse_method": parsed.method,
+        "prompt_version": template.version,
         "provider": resp.provider,
         "model": resp.model,
         "prompt_tokens": resp.input_tokens,
@@ -123,6 +147,10 @@ def main(argv: list[str] | None = None) -> int:
     }
     if resp.ttft_s is not None:
         result["ttft_s"] = round(resp.ttft_s, 3)
+    if resp.text.strip() != (parsed.category or ""):
+        # Respuesta completa del modelo (ej. el razonamiento de chain-of-thought), para auditar.
+        # Solo se muestra en pantalla: nunca se guarda en metrics.jsonl (M1L4).
+        result["model_output"] = resp.text.strip()
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return EXIT_OK
 

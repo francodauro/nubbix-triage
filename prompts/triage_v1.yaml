@@ -1,0 +1,16 @@
+# Versión 1 — migración literal de prompts/triage_v1.txt (D-21 → D-36).
+# Nunca se edita: un cambio es siempre un archivo nuevo (M1L2). Historia en prompts/CHANGELOG.md.
+version: triage_v1
+fecha: 2026-11-18
+tecnica: zero-shot
+descripcion: >
+  Prompt provisional de la etapa M1L1, copiado sin cambios desde triage_v1.txt para que las
+  métricas ya registradas con triage_v1 sigan correspondiendo a este texto. Rol, lista de
+  categorías con "other" y respuesta de una sola palabra; la consulta va como mensaje de usuario
+  sin delimitadores.
+system: |
+  Eres un agente de soporte de nivel 1 de Nubbix, un SaaS de gestión para pymes de LATAM.
+  Clasifica la consulta del cliente en exactamente una de estas categorías: billing, technical, account, other.
+  Usa "other" para todo lo que no encaje en las otras tres.
+  Responde únicamente con el nombre de la categoría, en minúsculas, sin explicación.
+user: "{consulta}"
