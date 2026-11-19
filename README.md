@@ -92,7 +92,17 @@ Los mismos 5 prompts sobre el mismo set, con el modelo pago (`python -m src.comp
 | Latencia media | ≈ 9–13 s (plan gratuito) | ≈ 1–1.7 s |
 | Costo real por consulta con v2 | 0 | ≈ USD 0.000035 |
 
-**Lectura:** `gpt-6-luna` acierta más y es unas 7 veces más rápido, pero cuesta; Gemini es gratis y, con un buen prompt (v2), solo falla el caso ambiguo NX-004. Se mantiene **Gemini como primario y `gpt-6-luna` como respaldo**, por el objetivo de gastar menos de USD 5 en el curso. `triage_v2` es la mejor o está empatada con los dos modelos, lo que refuerza su elección. Con `gpt-6-luna`, el razonamiento de v4 llevó a un error en holdout (NX-015) que v2 no comete. Es una sola corrida con 20 casos: orientativa.
+**Lectura de la comparativa:** `gpt-6-luna` acierta más y es unas 7 veces más rápido, pero cuesta; Gemini es gratis y, con un buen prompt (v2), solo falla el caso ambiguo NX-004. Se mantiene **Gemini como primario y `gpt-6-luna` como respaldo**, por el objetivo de gastar menos de USD 5 en el curso. `triage_v2` es la mejor o está empatada con los dos modelos, lo que refuerza su elección. Con `gpt-6-luna`, el razonamiento de v4 llevó a un error en holdout (NX-015) que v2 no comete. Es una sola corrida con 20 casos: orientativa.
+
+### Lecciones de la etapa M1L2
+
+- **No hay un prompting "mejor" en general.** Depende del modelo, de la tarea y del costo aceptable. El mismo error (NX-004) necesitó ejemplos con Gemini y ninguno con `gpt-6-luna`. Como dice el cierre de M1L2, la técnica más sofisticada no es automáticamente la mejor.
+- **Regla práctica que surge de los datos:** primero un prompt bien escrito con los 4 principios (rol, contexto, tarea, formato) y todas las categorías; medirlo; y agregar ejemplos o razonamiento solo donde la medición muestre un error que lo justifique. En este proyecto, los 4 principios dieron casi toda la mejora (v1 → v2).
+- **Few-shot sirve si el ejemplo representa la ambigüedad real.** Un ejemplo obvio (v3) no cambió nada; un par de contraste (v5: mismo tema, distinta intención) sí corrigió el error, porque obliga al modelo a decidir por la intención y no por las palabras sobre dinero.
+- **Chain-of-thought conviene en tareas de razonamiento de varios pasos**, no en una clasificación en 4 categorías: acá costó el doble, no fue estable entre corridas y con `gpt-6-luna` llevó a un error.
+- **Dev y holdout:** los ejemplos se eligen mirando los errores del lote dev; la decisión se toma con el holdout, que no se usó para diseñar. Si se midiera con el mismo lote, el resultado saldría inflado.
+- **Test vs. eval:** los tests (`unittest`) verifican que el código funcione (cargar los YAML, leer la respuesta, registrar métricas) y no llaman al modelo. La comparación es un eval: mide la calidad de las respuestas del modelo con cada prompt, que no son determinísticas. Es la diferencia entre testing (M0L2) y evals (M1L5).
+- **Comparar sin fallback:** al comparar prompts se usa un solo modelo (D-46); si respondiera otro modelo en algunas consultas, no se podría atribuir el resultado al prompt.
 
 ---
 
