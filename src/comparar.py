@@ -42,6 +42,17 @@ from .prompts import CATEGORIES, PromptError, PromptTemplate, list_versions, loa
 DATASET_PATH = PROJECT_ROOT / "evals" / "dataset.jsonl"
 REPORT_PATH = PROJECT_ROOT / "docs" / "comparacion_versiones.md"
 DETAIL_PATH = PROJECT_ROOT / "docs" / "comparacion_detalle.csv"
+DEFAULT_PROVIDER = "gemini"
+
+
+def output_paths(provider: str) -> tuple[Path, Path]:
+    """Reporte y CSV de una corrida. Con el proveedor por defecto se usan los nombres de siempre;
+    con otro se agrega su nombre (ej. comparacion_versiones_openai.md) para no pisar la comparación
+    principal (D-52)."""
+    if provider == DEFAULT_PROVIDER:
+        return REPORT_PATH, DETAIL_PATH
+    return (REPORT_PATH.with_name(f"{REPORT_PATH.stem}_{provider}.md"),
+            DETAIL_PATH.with_name(f"{DETAIL_PATH.stem}_{provider}.csv"))
 LOTS = ("dev", "holdout")
 DATASET_FIELDS = ("id", "texto", "lote", "categoria", "regla", "justificacion")
 
@@ -133,7 +144,9 @@ def summarize(rows: list[Row], pricing: Pricing, reference_model: str, scale: in
     answered = [r for r in rows if not r.error]
     by_lot = {}
     for lot in LOTS:
-        in_lot = [r for r in rows if r.lote == lot]
+        # D-50: la exactitud se calcula sobre las consultas que el modelo respondió. Una falla de la
+        # API (ej. Gemini saturado) no dice nada de la calidad del prompt; se informa aparte.
+        in_lot = [r for r in answered if r.lote == lot]
         by_lot[lot] = (sum(r.acierto for r in in_lot), len(in_lot))
     avg_in = statistics.mean(r.tokens_in for r in answered) if answered else 0.0
     avg_out = statistics.mean(r.tokens_out for r in answered) if answered else 0.0
@@ -180,7 +193,9 @@ def render_report(summaries: list[dict], rows: list[Row], meta: dict) -> str:
         )
     lines += [
         "",
-        "Cómo leerla: *inválidas* = la respuesta no trajo una de las 4 categorías; *parseo frágil* = la",
+        "Cómo leerla: la *exactitud* se calcula sobre las consultas respondidas (entre paréntesis, aciertos /",
+        "respondidas); las que fallaron por la API se cuentan en *errores API* y no como desaciertos.",
+        "*Inválidas* = la respuesta no trajo una de las 4 categorías; *parseo frágil* = la",
         "categoría se encontró buscándola en texto libre (el formato pedido no se respetó). El costo se",
         f"proyecta con los tokens medidos y el precio de `{meta['modelo_ref']}` (`config/pricing.json`),",
         "porque con Gemini gratuito el costo real es 0.",
@@ -193,10 +208,12 @@ def render_report(summaries: list[dict], rows: list[Row], meta: dict) -> str:
         "",
     ]
     for s in summaries:
-        errs = [r for r in rows if r.version == s["version"] and r.lote == "dev" and not r.acierto]
-        lines.append(f"**{s['version']}**: " + ("sin errores" if not errs else ""))
+        errs = [r for r in rows if r.version == s["version"] and r.lote == "dev" and not r.acierto and not r.error]
+        api = [r.id for r in rows if r.version == s["version"] and r.error]
+        lines.append(f"**{s['version']}**: " + ("sin errores" if not errs else "")
+                     + (f" (sin respuesta por error de API: {', '.join(api)})" if api else ""))
         for r in errs:
-            got = r.obtenida or ("error de API" if r.error else "sin categoría")
+            got = r.obtenida or "sin categoría"
             rule = f" · regla {r.regla}" if r.regla else ""
             lines.append(f"- {r.id}: esperada `{r.esperada}`, obtenida `{got}`{rule}")
         lines.append("")
@@ -224,7 +241,7 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                                      description="Compara versiones del prompt sobre evals/dataset.jsonl.")
     parser.add_argument("--versiones", nargs="+", metavar="V",
                         help="Versiones a comparar (ej. v1 v2). Por defecto, todas las de prompts/.")
-    parser.add_argument("--proveedor", choices=["gemini", "openai"], default="gemini",
+    parser.add_argument("--proveedor", choices=["gemini", "openai"], default=DEFAULT_PROVIDER,
                         help="Proveedor fijo para toda la corrida, sin fallback (D-46). Por defecto gemini (gratis).")
     parser.add_argument("--pausa", type=float, default=6.0,
                         help="Segundos entre llamadas (por defecto 6 ≈ 10 por minuto, para el plan gratuito).")
@@ -284,10 +301,11 @@ def main(argv: list[str] | None = None) -> int:
         "n_dev": sum(c["lote"] == "dev" for c in cases),
         "n_holdout": sum(c["lote"] == "holdout" for c in cases),
     }
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(render_report(summaries, all_rows, meta), encoding="utf-8")
-    write_detail(all_rows)
-    print(f"\nListo: {REPORT_PATH.relative_to(PROJECT_ROOT)} y {DETAIL_PATH.relative_to(PROJECT_ROOT)}")
+    report_path, detail_path = output_paths(provider.name)
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    report_path.write_text(render_report(summaries, all_rows, meta), encoding="utf-8")
+    write_detail(all_rows, detail_path)
+    print(f"\nListo: {report_path.relative_to(PROJECT_ROOT)} y {detail_path.relative_to(PROJECT_ROOT)}")
     return 0
 
 

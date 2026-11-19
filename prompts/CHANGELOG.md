@@ -54,20 +54,45 @@
   del profesor (v4 mejoró solo en holdout y costó ~60 % más).
 - **Resultado esperado:** acierta mejor los casos con reglas R2–R4 (lo que pide vs. lo que menciona), con
   bastantes más tokens de salida y latencia que v2.
-- **Resultado medido (19/11/2026, Gemini, 2 corridas):** holdout 100 % en las dos. En dev, 90 % en la primera
-  corrida y 100 % en la segunda: **NX-004 cambió de respuesta** (`billing` → `other`) con temperature 0, así que
-  ese acierto no es estable. Unos 65 tokens de salida (máximo 87, dentro del tope de 200: D-47 verificada),
+- **Resultado medido (19/11/2026, Gemini, 3 corridas):** holdout 100 % en las tres. En NX-004 respondió
+  `billing`, `other` y `billing`: **cambió de respuesta entre corridas** con temperature 0, así que ese acierto
+  no es estable. Unos 65 tokens de salida (máximo 87, dentro del tope de 200: D-47 verificada),
   ≈ USD 0.70 cada 10.000 consultas (el doble que v2) y la latencia más alta de las cuatro versiones.
+
+## triage_v5 — 2026-11-19 · few-shot con par de contraste (sobre v2)
+- **Qué:** v2 + dos ejemplos del mismo tema (pagar por un período más largo) con distinta intención:
+  "Si pasamos a pagar cada seis meses, ¿nos hacen alguna bonificación?" → `other` (pregunta una condición
+  comercial) y "A partir del mes que viene quiero que me cobren el plan anual en vez de mensual." → `billing`
+  (pide un cambio sobre lo que ya le cobran). Sin ninguna instrucción extra, para medir solo el efecto de los
+  ejemplos. Se apoya en v2, no en v3.
+- **Por qué:** v3 mostró que un ejemplo obvio no aporta. El Cierre de M1L2 pide "un ejemplo que represente un
+  caso ambiguo real, no uno obvio": la ambigüedad real de NX-004 es *preguntar* vs. *pedir un cambio* sobre el
+  pago, no "precio = comercial".
+- **Resultado esperado:** NX-004 → `other` sin que los ejemplos empujen casos de `billing` del holdout a `other`.
+- **Resultado medido (19/11/2026, Gemini, 1 corrida):** dev **100 %**, holdout **100 %**, 0 inválidas. Acertó
+  NX-004 y no rompió ningún `billing` del holdout. 378 tokens de entrada (≈ USD 0.41 cada 10.000 consultas con
+  `gpt-6-luna`, un 21 % más que v2). El 100 % de dev está inflado por diseño: los ejemplos se eligieron mirando dev.
 
 ## Decisión vigente (19/11/2026, provisional hasta M1L5)
 
-**`triage_v2` queda como versión por defecto** (`PROMPT_VERSION`, D-48).
-- En **holdout** (el lote que no se miró para diseñar) v2, v3 y v4 empatan en 100 %; v1 queda en 90 %.
-- **Costo:** v2 es la más barata de las que empatan (USD 0.34 cada 10.000 consultas contra 0.37 de v3 y 0.70
-  de v4).
-- **Consistencia:** v2 dio exactamente las mismas respuestas en las dos corridas, siempre en JSON. v4 cambió
-  una respuesta entre corridas.
-- Lo único que v4 hace mejor es acertar NX-004 en una de dos corridas: no justifica pagar el doble (M1L2: "¿mejoró
-  lo suficiente para justificar el costo?").
+**`triage_v2` sigue como versión por defecto** (`PROMPT_VERSION`, D-48, D-51); **`triage_v5` queda como candidata
+para M1L5.**
+- En **holdout** (el lote que no se miró para diseñar) v2, v3, v4 y v5 empatan en 100 %; v1 queda en 90 %. El
+  holdout no distingue entre ellas.
+- **Costo:** v2 es la más barata de las que empatan (USD 0.34 cada 10.000 consultas; v3 0.37, v5 0.41, v4 0.70).
+- **Consistencia:** v2 dio las mismas respuestas en las tres corridas, siempre en JSON. v4 cambió NX-004 entre
+  corridas. v5 se midió una sola vez.
+- La ventaja de v5 (acertar NX-004) está en dev, el lote con el que se diseñaron sus ejemplos: es la mejora
+  esperada, no una evidencia independiente. Que generalice se prueba en M1L5 con más casos del tipo de R5; si allí
+  acierta más sin perder consistencia, el 21 % de costo extra se justifica y pasa a ser la vigente.
+- v4 no justifica pagar el doble (M1L2: "¿mejoró lo suficiente para justificar el costo?").
 - Con 20 casos, un caso son 10 puntos: la decisión con datos se repite en M1L5 con ≥30 casos y score por
   categoría.
+
+### Mismos prompts con `gpt-6-luna` (19/11/2026, 1 corrida, comparativa de modelos, D-53)
+Reporte: `docs/comparacion_versiones_openai.md`. Dev / holdout: v1 90 % / 90 % · **v2 100 % / 100 %** ·
+v3 100 % / 100 % · v4 100 % / 90 % · v5 100 % / 100 %.
+- v2 también es la mejor (o empatada) con el modelo pago: acierta NX-004 sin necesidad de ejemplos. La ventaja de
+  v5 sobre v2 aparece solo con Gemini.
+- v4 (CoT) falló NX-015 en holdout: razonó "las funciones del plan no se activaron" → `technical`, aunque lo
+  primero que pide el cliente es la devolución (R1). El razonamiento explícito también puede llevar a un error.

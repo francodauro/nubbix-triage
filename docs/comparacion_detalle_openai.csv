@@ -1,0 +1,101 @@
+﻿version,id,lote,esperada,obtenida,acierto,valida,metodo,regla,tokens_in,tokens_out,latencia_s,error,respuesta
+triage_v1,NX-001,dev,billing,billing,True,True,texto,,120,4,3.545,,billing
+triage_v1,NX-002,dev,technical,technical,True,True,texto,,114,4,3.408,,technical
+triage_v1,NX-003,dev,account,account,True,True,texto,,119,4,4.279,,account
+triage_v1,NX-004,dev,other,billing,False,True,texto,R5,108,4,2.999,,billing
+triage_v1,NX-005,dev,technical,technical,True,True,texto,R2,115,4,1.064,,technical
+triage_v1,NX-006,dev,billing,billing,True,True,texto,R1,115,4,1.163,,billing
+triage_v1,NX-007,dev,account,account,True,True,texto,R3,111,4,1.22,,account
+triage_v1,NX-008,dev,billing,billing,True,True,texto,R5,120,4,1.865,,billing
+triage_v1,NX-009,dev,other,other,True,True,texto,,113,4,1.908,,other
+triage_v1,NX-010,dev,technical,technical,True,True,texto,R2,119,4,1.245,,technical
+triage_v1,NX-011,holdout,billing,billing,True,True,texto,,111,4,1.055,,billing
+triage_v1,NX-012,holdout,technical,technical,True,True,texto,,113,4,1.155,,technical
+triage_v1,NX-013,holdout,account,account,True,True,texto,,115,4,1.229,,account
+triage_v1,NX-014,holdout,other,billing,False,True,texto,R5,112,4,1.153,,billing
+triage_v1,NX-015,holdout,billing,billing,True,True,texto,R1,122,4,1.141,,billing
+triage_v1,NX-016,holdout,technical,technical,True,True,texto,R3,116,4,0.803,,technical
+triage_v1,NX-017,holdout,account,account,True,True,texto,R3,114,4,1.291,,account
+triage_v1,NX-018,holdout,other,other,True,True,texto,,105,4,0.869,,other
+triage_v1,NX-019,holdout,billing,billing,True,True,texto,R1,114,4,1.177,,billing
+triage_v1,NX-020,holdout,technical,technical,True,True,texto,R2,115,4,0.806,,technical
+triage_v2,NX-001,dev,billing,billing,True,True,json,,319,8,0.801,,"{""category"":""billing""}"
+triage_v2,NX-002,dev,technical,technical,True,True,json,,313,8,1.248,,"{""category"":""technical""}"
+triage_v2,NX-003,dev,account,account,True,True,json,,318,8,0.884,,"{""category"":""account""}"
+triage_v2,NX-004,dev,other,other,True,True,json,R5,307,8,0.871,,"{""category"":""other""}"
+triage_v2,NX-005,dev,technical,technical,True,True,json,R2,314,8,0.9,,"{""category"":""technical""}"
+triage_v2,NX-006,dev,billing,billing,True,True,json,R1,314,8,1.046,,"{""category"":""billing""}"
+triage_v2,NX-007,dev,account,account,True,True,json,R3,309,8,1.951,,"{""category"":""account""}"
+triage_v2,NX-008,dev,billing,billing,True,True,json,R5,319,8,5.221,,"{""category"":""billing""}"
+triage_v2,NX-009,dev,other,other,True,True,json,,312,8,1.52,,"{""category"":""other""}"
+triage_v2,NX-010,dev,technical,technical,True,True,json,R2,318,8,0.948,,"{""category"":""technical""}"
+triage_v2,NX-011,holdout,billing,billing,True,True,json,,309,8,1.016,,"{""category"":""billing""}"
+triage_v2,NX-012,holdout,technical,technical,True,True,json,,312,8,2.101,,"{""category"":""technical""}"
+triage_v2,NX-013,holdout,account,account,True,True,json,,314,8,2.009,,"{""category"":""account""}"
+triage_v2,NX-014,holdout,other,other,True,True,json,R5,311,8,1.095,,"{""category"":""other""}"
+triage_v2,NX-015,holdout,billing,billing,True,True,json,R1,321,8,0.835,,"{""category"":""billing""}"
+triage_v2,NX-016,holdout,technical,technical,True,True,json,R3,314,8,0.735,,"{""category"":""technical""}"
+triage_v2,NX-017,holdout,account,account,True,True,json,R3,313,8,1.002,,"{""category"":""account""}"
+triage_v2,NX-018,holdout,other,other,True,True,json,,304,8,0.712,,"{""category"":""other""}"
+triage_v2,NX-019,holdout,billing,billing,True,True,json,R1,312,8,0.726,,"{""category"":""billing""}"
+triage_v2,NX-020,holdout,technical,technical,True,True,json,R2,314,8,0.834,,"{""category"":""technical""}"
+triage_v3,NX-001,dev,billing,billing,True,True,json,,350,9,0.853,,"{""category"": ""billing""}"
+triage_v3,NX-002,dev,technical,technical,True,True,json,,344,9,1.027,,"{""category"": ""technical""}"
+triage_v3,NX-003,dev,account,account,True,True,json,,349,9,1.94,,"{""category"": ""account""}"
+triage_v3,NX-004,dev,other,other,True,True,json,R5,338,9,0.965,,"{""category"": ""other""}"
+triage_v3,NX-005,dev,technical,technical,True,True,json,R2,345,9,0.798,,"{""category"": ""technical""}"
+triage_v3,NX-006,dev,billing,billing,True,True,json,R1,345,9,1.143,,"{""category"": ""billing""}"
+triage_v3,NX-007,dev,account,account,True,True,json,R3,340,9,1.204,,"{""category"": ""account""}"
+triage_v3,NX-008,dev,billing,billing,True,True,json,R5,350,9,1.177,,"{""category"": ""billing""}"
+triage_v3,NX-009,dev,other,other,True,True,json,,343,9,0.755,,"{""category"": ""other""}"
+triage_v3,NX-010,dev,technical,technical,True,True,json,R2,349,9,0.78,,"{""category"": ""technical""}"
+triage_v3,NX-011,holdout,billing,billing,True,True,json,,340,9,1.044,,"{""category"": ""billing""}"
+triage_v3,NX-012,holdout,technical,technical,True,True,json,,343,9,0.83,,"{""category"": ""technical""}"
+triage_v3,NX-013,holdout,account,account,True,True,json,,345,9,0.752,,"{""category"": ""account""}"
+triage_v3,NX-014,holdout,other,other,True,True,json,R5,342,9,0.934,,"{""category"": ""other""}"
+triage_v3,NX-015,holdout,billing,billing,True,True,json,R1,352,8,0.92,,"{""category"":""billing""}"
+triage_v3,NX-016,holdout,technical,technical,True,True,json,R3,345,9,0.71,,"{""category"": ""technical""}"
+triage_v3,NX-017,holdout,account,account,True,True,json,R3,344,9,1.223,,"{""category"": ""account""}"
+triage_v3,NX-018,holdout,other,other,True,True,json,,335,9,1.266,,"{""category"": ""other""}"
+triage_v3,NX-019,holdout,billing,billing,True,True,json,R1,343,9,0.826,,"{""category"": ""billing""}"
+triage_v3,NX-020,holdout,technical,technical,True,True,json,R2,345,9,0.877,,"{""category"": ""technical""}"
+triage_v4,NX-001,dev,billing,billing,True,True,linea_final,,372,52,1.518,,"Tema: Cobro duplicado de la suscripción de noviembre. | Pide: Que le devuelvan uno de los cobros. | Decisión: billing, porque solicita una devolución de un cargo de Nubbix. | CATEGORIA: billing"
+triage_v4,NX-002,dev,technical,technical,True,True,linea_final,,366,47,1.57,,"Tema: El reporte mensual de ventas en la plataforma. | Pide: Que se resuelva un reporte que no termina de cargar. | Decisión: technical, porque describe una falla de la plataforma. | CATEGORIA: technical"
+triage_v4,NX-003,dev,account,account,True,True,linea_final,,371,43,1.609,,"Tema: Permisos de una empleada. | Pide: Configurar qué puede ver y hacer en la cuenta. | Decisión: account, porque consulta sobre roles y permisos. | CATEGORIA: account"
+triage_v4,NX-004,dev,other,other,True,True,linea_final,R5,360,43,1.697,,"Tema: Precio y condiciones de la suscripción. | Pide: Saber si hay descuento por pago anual anticipado. | Decisión: other, porque consulta por una condición comercial. | CATEGORIA: other"
+triage_v4,NX-005,dev,technical,technical,True,True,linea_final,R2,367,56,2.394,,"Tema: Falla al emitir una factura electrónica por un error de conexión con ARCA. | Pide: Que se resuelva un problema de funcionamiento de la plataforma. | Decisión: technical, porque la emisión falla por un error de conexión. | CATEGORIA: technical"
+triage_v4,NX-006,dev,billing,billing,True,True,linea_final,R1,367,49,1.574,,"Tema: Cobro de usuarios dados de baja. | Pide: Revisar un cargo en la factura de Nubbix. | Decisión: billing, porque consulta por un cobro de la suscripción. | CATEGORIA: billing"
+triage_v4,NX-007,dev,account,account,True,True,linea_final,R3,362,43,1.603,,"Tema: Acceso a la cuenta. | Pide: Resolver el bloqueo de su usuario para poder entrar. | Decisión: account, porque se trata del acceso a la cuenta. | CATEGORIA: account"
+triage_v4,NX-008,dev,billing,billing,True,True,linea_final,R5,372,48,1.664,,"Tema: Cambio de plan de suscripción. | Pide: Saber cómo cambiar al plan Pro y cuánto cuesta la diferencia. | Decisión: billing, porque consulta por su plan y el cobro asociado. | CATEGORIA: billing"
+triage_v4,NX-009,dev,other,other,True,True,linea_final,,365,45,1.483,,"Tema: Gestión de stock en dos sucursales. | Pide: Saber si Nubbix ofrece esa funcionalidad. | Decisión: other, porque solicita información general sobre el producto. | CATEGORIA: other"
+triage_v4,NX-010,dev,technical,technical,True,True,linea_final,R2,371,46,2.341,,"Tema: Integración con Mercado Pago. | Pide: Resolver que los cobros no se registren en Nubbix. | Decisión: technical, porque la integración no funciona como debería. | CATEGORIA: technical"
+triage_v4,NX-011,holdout,billing,billing,True,True,linea_final,,362,49,2.311,,"Tema: Factura de Nubbix correspondiente a octubre. | Pide: Recibir la factura para entregársela a su contador. | Decisión: billing, porque solicita una factura de Nubbix. | CATEGORIA: billing"
+triage_v4,NX-012,holdout,technical,technical,True,True,linea_final,,365,49,1.638,,"Tema: La app móvil y el módulo de inventario. | Pide: Que se revise una falla que impide usar el módulo. | Decisión: technical, porque la app se cierra inesperadamente. | CATEGORIA: technical"
+triage_v4,NX-013,holdout,account,account,True,True,linea_final,,367,44,1.741,,"Tema: Email del administrador de la cuenta. | Pide: Cambiar los datos de acceso del administrador. | Decisión: account, porque solicita actualizar la cuenta y sus accesos. | CATEGORIA: account"
+triage_v4,NX-014,holdout,other,other,True,True,linea_final,R5,364,42,1.688,,"Tema: Planes y precios de Nubbix. | Pide: Información sobre un plan corporativo o precios especiales. | Decisión: other, porque solicita información comercial. | CATEGORIA: other"
+triage_v4,NX-015,holdout,billing,technical,False,True,linea_final,R1,374,57,1.8,,"Tema: Plan Pro cobrado, pero funciones Básicas visibles. | Pide: Que le devuelvan la diferencia o le activen el Pro. | Decisión: technical, porque reporta que las funciones del plan no se activaron correctamente. | CATEGORIA: technical"
+triage_v4,NX-016,holdout,technical,technical,True,True,linea_final,R3,367,51,1.545,,"Tema: La plataforma Nubbix no carga para nadie en la oficina. | Pide: Confirmar si el servicio está caído. | Decisión: technical, porque reporta una posible falla general de la plataforma. | CATEGORIA: technical"
+triage_v4,NX-017,holdout,account,account,True,True,linea_final,R3,366,43,1.447,,"Tema: Acceso a la cuenta. | Pide: Ayuda para recuperar la contraseña y entrar. | Decisión: account, porque necesita resolver un problema de inicio de sesión. | CATEGORIA: account"
+triage_v4,NX-018,holdout,other,other,True,True,linea_final,,357,51,1.406,,"Tema: Horario de atención del soporte telefónico. | Pide: Información general sobre el servicio de soporte. | Decisión: other, porque no trata sobre cobros, fallas de la plataforma ni accesos. | CATEGORIA: other"
+triage_v4,NX-019,holdout,billing,billing,True,True,linea_final,R1,365,59,2.046,,"Tema: Cobro de la suscripción y moneda de la factura. | Pide: Corregir un cobro realizado en USD en vez de ARS. | Decisión: billing, porque se trata de un cargo y una factura de Nubbix. | CATEGORIA: billing"
+triage_v4,NX-020,holdout,technical,technical,True,True,linea_final,R2,367,58,1.529,,"Tema: Diferencia entre el libro de IVA exportado y los totales en pantalla. | Pide: Que se revise una discrepancia en un reporte de la plataforma. | Decisión: technical, porque el reporte exportado no coincide con lo mostrado. | CATEGORIA: technical"
+triage_v5,NX-001,dev,billing,billing,True,True,json,,382,9,0.884,,"{""category"": ""billing""}"
+triage_v5,NX-002,dev,technical,technical,True,True,json,,376,9,0.879,,"{""category"": ""technical""}"
+triage_v5,NX-003,dev,account,account,True,True,json,,381,9,1.478,,"{""category"": ""account""}"
+triage_v5,NX-004,dev,other,other,True,True,json,R5,370,9,0.746,,"{""category"": ""other""}"
+triage_v5,NX-005,dev,technical,technical,True,True,json,R2,377,9,0.754,,"{""category"": ""technical""}"
+triage_v5,NX-006,dev,billing,billing,True,True,json,R1,377,9,0.888,,"{""category"": ""billing""}"
+triage_v5,NX-007,dev,account,account,True,True,json,R3,372,9,0.96,,"{""category"": ""account""}"
+triage_v5,NX-008,dev,billing,billing,True,True,json,R5,382,9,0.877,,"{""category"": ""billing""}"
+triage_v5,NX-009,dev,other,other,True,True,json,,375,9,0.737,,"{""category"": ""other""}"
+triage_v5,NX-010,dev,technical,technical,True,True,json,R2,381,9,0.869,,"{""category"": ""technical""}"
+triage_v5,NX-011,holdout,billing,billing,True,True,json,,372,9,0.947,,"{""category"": ""billing""}"
+triage_v5,NX-012,holdout,technical,technical,True,True,json,,375,9,1.439,,"{""category"": ""technical""}"
+triage_v5,NX-013,holdout,account,account,True,True,json,,377,9,0.852,,"{""category"": ""account""}"
+triage_v5,NX-014,holdout,other,other,True,True,json,R5,374,9,0.824,,"{""category"": ""other""}"
+triage_v5,NX-015,holdout,billing,billing,True,True,json,R1,384,9,0.865,,"{""category"": ""billing""}"
+triage_v5,NX-016,holdout,technical,technical,True,True,json,R3,377,9,0.978,,"{""category"": ""technical""}"
+triage_v5,NX-017,holdout,account,account,True,True,json,R3,376,9,0.828,,"{""category"": ""account""}"
+triage_v5,NX-018,holdout,other,other,True,True,json,,367,9,0.813,,"{""category"": ""other""}"
+triage_v5,NX-019,holdout,billing,billing,True,True,json,R1,375,9,0.998,,"{""category"": ""billing""}"
+triage_v5,NX-020,holdout,technical,technical,True,True,json,R2,377,9,0.769,,"{""category"": ""technical""}"

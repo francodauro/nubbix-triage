@@ -15,7 +15,7 @@ from pathlib import Path
 from unittest import mock
 
 from src import main as cli
-from src.comparar import DatasetError, evaluate, load_dataset, render_report, summarize
+from src.comparar import DatasetError, evaluate, load_dataset, output_paths, render_report, summarize
 from src.config import PROJECT_ROOT, load_settings
 from src.costs import Pricing
 from src.metrics import MetricsLog
@@ -260,6 +260,27 @@ class TestComparar(unittest.TestCase):
         self.assertIn("B: esperada `account`, obtenida `technical` · regla R3", report)
         self.assertNotIn("C: esperada", report)  # los errores de holdout no se muestran
         self.assertEqual(self.metrics.read_all()[0]["prompt_version"], "triage_v2")
+
+
+    def test_un_error_de_api_no_cuenta_como_desacierto(self):
+        from src.llm.base import ServerError
+        cases = [
+            {"id": "A", "texto": "a", "lote": "dev", "categoria": "billing", "regla": None},
+            {"id": "B", "texto": "b", "lote": "dev", "categoria": "account", "regla": None},
+        ]
+        provider = FakeProvider("gemini", "free-model", ['{"category": "billing"}', ServerError("gemini", "high demand")])
+        router = Router([provider], self.pricing, self.metrics, budget_usd=1, max_retries=0, max_wait_s=1)
+        rows = evaluate(router, load_prompt("v2", PROMPTS_DIR), cases, log=lambda *_: None)
+        summary = summarize(rows, self.pricing, "paid-model")
+        self.assertEqual(summary["aciertos"]["dev"], (1, 1))  # 1 acierto sobre 1 respondida
+        self.assertEqual(summary["errores_api"], 1)
+
+
+    def test_cada_proveedor_escribe_en_sus_propios_archivos(self):
+        report, detail = output_paths("gemini")
+        self.assertEqual((report.name, detail.name), ("comparacion_versiones.md", "comparacion_detalle.csv"))
+        report, detail = output_paths("openai")
+        self.assertEqual((report.name, detail.name), ("comparacion_versiones_openai.md", "comparacion_detalle_openai.csv"))
 
 
 if __name__ == "__main__":

@@ -45,8 +45,9 @@ Los prompts viven en `prompts/triage_vN.yaml`, fuera del código. Cada versión 
 |---|---|---|
 | `triage_v1` | zero-shot | Línea base: rol, las 4 categorías con `other`, respuesta de una palabra (migración del `.txt` de M1L1) |
 | `triage_v2` ✅ | zero-shot con los 4 principios | Rol, contexto, tarea y formato; consulta entre `<consulta>…</consulta>`; categorías con descripción inyectadas desde el código; salida `{"category": "..."}` |
-| `triage_v3` | few-shot | v2 + un ejemplo armado con el único error de v2 en dev (descartada: no cambió nada) |
+| `triage_v3` | few-shot | v2 + un ejemplo obvio a partir del único error de v2 en dev (descartada: no cambió nada) |
 | `triage_v4` | chain-of-thought | v2 + razonamiento `Tema` / `Pide` / `Decisión` y última línea `CATEGORIA: <valor>` |
+| `triage_v5` | few-shot con par de contraste | v2 + dos ejemplos del mismo tema con distinta intención (preguntar una condición → `other`; pedir un cambio en lo que se paga → `billing`). Candidata para M1L5 |
 
 **Plantilla y variables.** El YAML tiene la plantilla fija (`system` y `user`); en cada consulta `src/prompts.py` completa `{empresa}`, `{categorias}` (de `CATEGORIES`, única fuente de verdad) y `{consulta}`. Las llaves literales del JSON van dobles (`{{ }}`); si una plantilla usa una variable desconocida, el error aparece al cargarla, antes de llamar al modelo.
 
@@ -61,16 +62,37 @@ python -m src.comparar --versiones v2 v4      # solo algunas
 
 Usa el set etiquetado `evals/dataset.jsonl` (20 consultas: 10 **dev** para diseñar y 10 **holdout** para medir al final; reglas en [evals/guia_etiquetado.md](evals/guia_etiquetado.md)), con un solo proveedor fijo y sin fallback, y genera [docs/comparacion_versiones.md](docs/comparacion_versiones.md) + `docs/comparacion_detalle.csv`.
 
-Resultados del 19/11/2026 (Gemini `gemini-3.5-flash-lite`, temperature 0; segunda corrida):
+Resultados del 19/11/2026 (Gemini `gemini-3.5-flash-lite`, temperature 0; tres corridas, tabla de la última). La exactitud se calcula sobre las consultas respondidas; en la última corrida Gemini rechazó 3 llamadas por "high demand" (1 de v2, 2 de v4).
 
-| Versión | Exactitud dev | Exactitud holdout | Inválidas | Tokens entrada / salida | USD × 10.000 con `gpt-6-luna` |
-|---|---|---|---:|---|---:|
-| triage_v1 | 70 % | 90 % | 0 | 108 / 1 | 0.11 |
-| **triage_v2** | 90 % | **100 %** | 0 | 309 / 6 | **0.34** |
-| triage_v3 | 90 % | 100 % | 0 | 342 / 6 | 0.37 |
-| triage_v4 | 100 % | 100 % | 0 | 365 / 67 | 0.70 |
+| Versión | Exactitud dev | Exactitud holdout | Inválidas | Tokens entrada / salida | USD × 10.000 con `gpt-6-luna` | Consistencia entre corridas |
+|---|---|---|---:|---|---:|---|
+| triage_v1 | 70 % | 90 % | 0 | 108 / 1 | 0.11 | Igual en las 3 |
+| **triage_v2** | 90 % | **100 %** | 0 | 309 / 6 | **0.34** | Igual en las 3 |
+| triage_v3 | 90 % | 100 % | 0 | 342 / 6 | 0.37 | Igual en las 2 |
+| triage_v4 | 88 % | 100 % | 0 | 365 / 65 | 0.69 | NX-004 cambió: billing → other → billing |
+| triage_v5 | 100 % | 100 % | 0 | 378 / 6 | 0.41 | 1 corrida |
 
-**Técnica elegida: `triage_v2` (zero-shot con los 4 principios).** En holdout empata con v3 y v4, es la más barata de las tres y dio las mismas respuestas en las dos corridas. Few-shot (v3) no cambió ninguna respuesta. Chain-of-thought (v4) cuesta el doble y su único acierto extra (NX-004 en dev) cambió entre corridas, así que no es estable. **Es una elección provisional**: con 20 casos, un caso son 10 puntos; la decisión con datos se repite en M1L5 con ≥30 casos y score por categoría.
+**Técnica elegida: `triage_v2` (zero-shot con los 4 principios).** En holdout empata con v3, v4 y v5, es la más barata y respondió igual en las tres corridas. Lo que se aprendió de cada técnica:
+- **Few-shot**: un ejemplo obvio (v3) no cambió ninguna respuesta; un par de contraste que representa la ambigüedad real (v5) sí corrigió el único error de v2 sin romper el holdout. v5 queda como candidata: su mejora está en el lote dev con el que se eligieron los ejemplos y cuesta un 21 % más, así que se confirma en M1L5.
+- **Chain-of-thought** (v4): cuesta el doble y su acierto extra cambia entre corridas: no justifica el costo.
+
+**Es una elección provisional**: con 20 casos, un caso son 10 puntos; la decisión con datos se repite en M1L5 con ≥30 casos y score por categoría.
+
+### Comparativa de modelos (extra credit)
+
+Los mismos 5 prompts sobre el mismo set, con el modelo pago (`python -m src.comparar --proveedor openai`, 100 llamadas, **USD 0.0038 en total**). Con un proveedor distinto del de por defecto, el reporte se guarda aparte: [docs/comparacion_versiones_openai.md](docs/comparacion_versiones_openai.md).
+
+| Prompt | Gemini `gemini-3.5-flash-lite` (dev / holdout) | OpenAI `gpt-6-luna` (dev / holdout) |
+|---|---|---|
+| triage_v1 | 70 % / 90 % | 90 % / 90 % |
+| **triage_v2** | 90 % / 100 % | **100 % / 100 %** |
+| triage_v3 | 90 % / 100 % | 100 % / 100 % |
+| triage_v4 | 88 % / 100 % | 100 % / 90 % |
+| triage_v5 | 100 % / 100 % | 100 % / 100 % |
+| Latencia media | ≈ 9–13 s (plan gratuito) | ≈ 1–1.7 s |
+| Costo real por consulta con v2 | 0 | ≈ USD 0.000035 |
+
+**Lectura:** `gpt-6-luna` acierta más y es unas 7 veces más rápido, pero cuesta; Gemini es gratis y, con un buen prompt (v2), solo falla el caso ambiguo NX-004. Se mantiene **Gemini como primario y `gpt-6-luna` como respaldo**, por el objetivo de gastar menos de USD 5 en el curso. `triage_v2` es la mejor o está empatada con los dos modelos, lo que refuerza su elección. Con `gpt-6-luna`, el razonamiento de v4 llevó a un error en holdout (NX-015) que v2 no comete. Es una sola corrida con 20 casos: orientativa.
 
 ---
 
@@ -215,7 +237,7 @@ Usan proveedores falsos: no llaman a ninguna API ni gastan cuota.
 python -m unittest discover -s tests -v
 ```
 
-Son 46 pruebas. Las 27 de M1L2 (`tests/test_prompts.py`) cubren: carga y validación de los YAML (versión inexistente, campo faltante, variable mal escrita, llaves del JSON), que todas las versiones listen las 4 categorías, la separación plantilla/variables, el parser (JSON, última línea, una palabra, heurística, categoría inventada), la elección de versión por `--prompt` y su registro en las métricas, y el resumen del comparador. Las 19 de M1L1 (`tests/test_router.py`) cubren: uso del gratuito, fallback al pago, bloqueo por presupuesto, respeto de `Retry-After`, backoff con jitter, errores no reintentables, streaming parcial, campos de las métricas (incluida la `temperature`), TTFT en streaming, proyección de costo a 10.000 consultas, aviso cuando falla un proveedor y parámetros enviados a OpenAI (`max_completion_tokens`, `reasoning_effort`).
+Son 48 pruebas. Las 29 de M1L2 (`tests/test_prompts.py`) cubren: carga y validación de los YAML (versión inexistente, campo faltante, variable mal escrita, llaves del JSON), que todas las versiones listen las 4 categorías, la separación plantilla/variables, el parser (JSON, última línea, una palabra, heurística, categoría inventada), la elección de versión por `--prompt` y su registro en las métricas, y el resumen del comparador (incluido que un error de la API no cuente como desacierto y que cada proveedor escriba en sus propios archivos). Las 19 de M1L1 (`tests/test_router.py`) cubren: uso del gratuito, fallback al pago, bloqueo por presupuesto, respeto de `Retry-After`, backoff con jitter, errores no reintentables, streaming parcial, campos de las métricas (incluida la `temperature`), TTFT en streaming, proyección de costo a 10.000 consultas, aviso cuando falla un proveedor y parámetros enviados a OpenAI (`max_completion_tokens`, `reasoning_effort`).
 
 ---
 
@@ -252,7 +274,7 @@ nubbix-triage/
 ├── config/
 │   └── pricing.json      precios por modelo (USD por 1M de tokens)
 ├── prompts/
-│   ├── triage_v1.yaml … triage_v4.yaml   versiones del prompt (nunca se editan)
+│   ├── triage_v1.yaml … triage_v5.yaml   versiones del prompt (nunca se editan)
 │   └── CHANGELOG.md      qué cambió, por qué y resultado medido
 ├── src/
 │   ├── main.py           CLI
@@ -277,8 +299,9 @@ nubbix-triage/
 └── docs/
     ├── DECISIONES.md     cada decisión con su fuente en Henry
     ├── ROADMAP.md        consigna del PI vs. estado
-    ├── comparacion_versiones.md  reporte de la comparación de prompts
-    └── comparacion_detalle.csv   detalle por consulta y versión
+    ├── comparacion_versiones.md  reporte de la comparación de prompts (Gemini)
+    ├── comparacion_detalle.csv   detalle por consulta y versión (Gemini)
+    └── comparacion_*_openai.*    lo mismo con gpt-6-luna (comparativa de modelos)
 ```
 
 ## Subir a Git
@@ -298,6 +321,7 @@ git commit -m "feat: cliente multi-proveedor con fallback y presupuesto (M1L1)"
 - **Por qué gpt-6-luna y no lo que dice Henry**: M1L1 propone `gpt-4.1-mini`/`gpt-4.1-nano`, pero OpenAI dio de baja `gpt-4.1-nano` (las métricas registraron un `bad_request` el 18/11/2026 y el mensaje fue "404 model deprecated"). `gpt-6-luna` es el reemplazo que recomienda OpenAI y cuesta casi lo mismo. Se probó antes de adoptarlo: con `reasoning_effort="none"` acepta `temperature=0` y no gasta tokens de razonamiento.
 - **Por qué temperature 0**: clasificar no es creativo; el mismo ticket tiene que recibir siempre la misma categoría (M1L1).
 - **Por qué `triage_v2`**: ver "Comparación de versiones" arriba y [prompts/CHANGELOG.md](prompts/CHANGELOG.md).
+- **Por qué Gemini sigue de primario aunque `gpt-6-luna` acertó más**: ver "Comparativa de modelos": es gratis y con el prompt vigente la diferencia es un solo caso ambiguo.
 - **Por qué hay un set etiquetado ya en L2**: el ejemplo de L2 del profesor (caso OrbitAir) compara las versiones sobre 20 consultas en lotes dev/holdout. Es provisional y se amplía en L5.
 - **Por qué no hay circuit breaker todavía**: la CLI procesa una consulta por ejecución y no guarda estado; se evalúa si se hace la API con FastAPI.
 
