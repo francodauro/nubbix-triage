@@ -73,7 +73,38 @@
   NX-004 y no rompió ningún `billing` del holdout. 378 tokens de entrada (≈ USD 0.41 cada 10.000 consultas con
   `gpt-6-luna`, un 21 % más que v2). El 100 % de dev está inflado por diseño: los ejemplos se eligieron mirando dev.
 
-## Decisión vigente (19/11/2026, provisional hasta M1L5)
+## triage_v6 — 2026-11-19 · v2 + contrato por tool calling (M1L3)
+- **Qué:** v2 adaptada al contrato del PI `{answer, confidence, category, actions}`. El rol pasa de "derivas, no
+  respondes" a clasificar, proponer una primera respuesta para el cliente (de "usted") y sugerir acciones para el
+  agente humano. Se agregan reglas para la respuesta (breve, en el idioma de la consulta, pedir los datos que faltan,
+  no prometer devoluciones ni plazos ni inventar políticas), qué significa la confianza y la lista de acciones
+  (`{acciones}`, desde `ACTIONS` en `src/prompts.py`). Se quita "Responde SOLO con un JSON…": con tool calling el
+  formato lo define el schema de la función. Campo nuevo `salida: contrato`. Se apoya en v2, no en v5.
+- **Por qué:** M1L3 (contrato validado, tool calling; la instrucción de formato textual "queda obsoleta" y contradice
+  al schema) y el ejemplo del profesor (su `triage_v5.txt` de L3). Partir de v2 aísla un solo cambio: el mecanismo de
+  salida.
+- **Resultado esperado:** la misma exactitud que v2, contratos válidos (pocos o ningún reintento) y bastante más costo
+  (schema en cada llamada + la respuesta escrita).
+- **Resultado medido (19/11/2026, `python -m src.comparar --versiones v2 v6 --etiqueta l3`, 1 corrida por modelo):**
+  - Gemini: dev 90 % · holdout **100 %**, igual que v2. El error de dev cambió de lugar: v6 acierta NX-004 (que v2
+    falla) y falla NX-008 (`billing` → `other` + `contact_sales`, confianza 0.85). Ambos son R5.
+  - `gpt-6-luna`: dev 90 % · holdout **100 %**; v2 dio 100 % / 100 %. v6 falla NX-008 igual que con Gemini (confianza
+    0.99).
+  - 40 de 40 contratos válidos al primer intento (intentos medios 1.00). ≈ 975 tokens de entrada y ≈ 83 de salida:
+    USD 1.39–1.41 cada 10.000 consultas con `gpt-6-luna`, unas 4 veces v2.
+- **Lectura:** el contrato no hizo perder exactitud en holdout. La regresión de NX-008 en dev aparece con los dos
+  modelos solo con v6: no parece ruido. Hipótesis: la descripción de la acción `contact_sales` ("planes, precios,
+  descuentos o condiciones") atrae los cambios de plan hacia ventas. Agregar lo que se pide (acciones) cambió cómo se
+  clasifica, sin tocar las reglas de clasificación.
+
+## Decisión vigente (19/11/2026, provisional hasta M1L5) — actualizada en M1L3
+
+**`triage_v6` es la versión por defecto desde M1L3** (D-69): empata con v2 en holdout con los dos modelos y es la
+única que produce el contrato del PI. No clasifica mejor que v2 y cuesta unas 4 veces más; v2 sigue disponible con
+`--prompt v2`. La regresión de NX-008 (R5) se corrige en M1L5 con más casos de ese tipo y una v7 = par de contraste
+de v5 + contrato. Lo que sigue es la decisión de M1L2, que v6 hereda (v6 = v2 + contrato).
+
+### Decisión de M1L2
 
 **`triage_v2` sigue como versión por defecto** (`PROMPT_VERSION`, D-48, D-51); **`triage_v5` queda como candidata
 para M1L5.**

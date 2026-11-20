@@ -14,7 +14,15 @@ from typing import Callable
 from ..costs import Pricing
 from ..metrics import MetricsLog
 from ..retry import call_with_backoff
-from .base import AllProvidersFailedError, BudgetExceededError, LLMProvider, LLMResponse, ProviderError, TokenCallback
+from .base import (
+    AllProvidersFailedError,
+    BudgetExceededError,
+    LLMProvider,
+    LLMResponse,
+    ProviderError,
+    TokenCallback,
+    ToolSpec,
+)
 
 
 class Router:
@@ -54,6 +62,7 @@ class Router:
         prompt_version: str,
         on_token: TokenCallback | None = None,
         extra_fields: Callable[[LLMResponse], dict] | None = None,
+        tool: ToolSpec | None = None,
     ) -> LLMResponse:
         """Pide la respuesta al primer proveedor disponible, en orden.
 
@@ -61,6 +70,8 @@ class Router:
         ``extra_fields`` recibe la respuesta exitosa y devuelve campos para agregar a su línea
         de métricas (ej. cómo se parseó la categoría, D-44). Nunca debe devolver texto del
         cliente ni del modelo (M1L4).
+        ``tool`` (M1L3): se le pasa al proveedor para forzar la tool call. El fallback, el presupuesto y
+        los reintentos de red funcionan igual; validar el contrato le toca a ``src/triage.py``.
         """
         errors: list[Exception] = []
         for index, provider in enumerate(self.providers):
@@ -90,8 +101,11 @@ class Router:
             if self._sleep is not None:
                 kwargs["sleep"] = self._sleep
             try:
+                call_kwargs = {"on_token": on_token}
+                if tool is not None:
+                    call_kwargs["tool"] = tool
                 response, attempts = call_with_backoff(
-                    lambda p=provider: p.complete(prompt, system, on_token=on_token), **kwargs
+                    lambda p=provider: p.complete(prompt, system, **call_kwargs), **kwargs
                 )
             except ProviderError as exc:
                 self.metrics.append(

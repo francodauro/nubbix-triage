@@ -7,16 +7,39 @@ Fuentes:
   siempre el mismo objeto (LLMResponse)".
 - M1L1 · Rate limits: 429 y 5xx se reintentan; Retry-After tiene prioridad.
 - M0L2 · Excepciones propias para errores tipados.
+- M1L3 · Tool use / function calling: ``ask_tool()`` devuelve siempre un ``ToolResponse`` con los
+  argumentos como dict, aunque OpenAI los entregue como string JSON y Gemini (como Anthropic) como
+  dict. Acá eso se resuelve con el mismo ``LLMResponse`` + ``tool_args`` (D-57).
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Callable, Optional
+from typing import Any, Callable, Optional
 
 # Callback que recibe cada fragmento de texto en modo streaming.
 TokenCallback = Callable[[str], None]
+
+
+@dataclass(frozen=True)
+class ToolSpec:
+    """Herramienta (función) que se obliga al modelo a llamar (M1L3 · Tool use).
+
+    La función no existe en Python: es un formulario que el modelo tiene que llenar. ``parameters`` es el
+    JSON Schema de sus argumentos y sale del contrato Pydantic (``model_json_schema()``), así el schema
+    no se escribe dos veces.
+    """
+
+    name: str
+    description: str
+    parameters: dict[str, Any]
+
+
+# Por qué ``tool_args`` quedó en None (se registra en métricas y se le explica al modelo al reintentar).
+TOOL_NO_CALL = "sin_tool_call"        # el modelo respondió texto en vez de llamar a la función
+TOOL_BAD_JSON = "json_invalido"       # OpenAI: arguments no es JSON válido (ej. cortado por el tope de tokens)
+TOOL_NOT_OBJECT = "args_no_objeto"    # el JSON es válido pero no es un objeto {...}
 
 
 @dataclass
@@ -34,6 +57,11 @@ class LLMResponse:
     finish_reason: Optional[str] = None
     # Solo en streaming: segundos hasta el primer fragmento de texto (TTFT, M1L1 · Streaming).
     ttft_s: Optional[float] = None
+    # Solo con tool calling (M1L3): argumentos ya convertidos a dict, o None si no se pudieron leer.
+    # En ese caso ``tool_error`` dice por qué (TOOL_NO_CALL, TOOL_BAD_JSON, TOOL_NOT_OBJECT) y
+    # ``text`` guarda lo que llegó, para poder explicárselo al modelo en el reintento.
+    tool_args: Optional[dict[str, Any]] = None
+    tool_error: Optional[str] = None
 
 
 # --------------------------------------------------------------------------- errores
@@ -131,10 +159,15 @@ class LLMProvider(ABC):
         self.timeout_s = timeout_s
 
     @abstractmethod
-    def complete(self, prompt: str, system: str, *, on_token: TokenCallback | None = None) -> LLMResponse:
+    def complete(
+        self, prompt: str, system: str, *, on_token: TokenCallback | None = None, tool: ToolSpec | None = None
+    ) -> LLMResponse:
         """Envía ``prompt`` con instrucciones ``system`` y devuelve un ``LLMResponse``.
 
         Si ``on_token`` no es None, usa streaming y llama a ``on_token`` con cada fragmento.
+        Si ``tool`` no es None, obliga al modelo a llamar a esa función (M1L3) y completa ``tool_args``
+        con un dict, o lo deja en None con el motivo en ``tool_error``. No valida el contenido: eso lo
+        hace el contrato Pydantic. Con ``tool`` no se usa streaming.
         Debe traducir los errores del SDK a subclases de ``ProviderError``.
         ``cost_usd`` lo completa el router con ``config/pricing.json``.
         """

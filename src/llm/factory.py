@@ -34,6 +34,7 @@ def build_providers(settings: Settings) -> tuple[list[LLMProvider], list[str]]:
         }
         if name == "openai":
             kwargs["reasoning_effort"] = cfg.reasoning_effort
+            kwargs["strict_tools"] = cfg.strict_tools
         try:
             providers.append(_PROVIDER_CLASSES[name](**kwargs))
         except AuthError as exc:

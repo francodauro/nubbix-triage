@@ -8,10 +8,16 @@ Ver docs/DECISIONES.md, decisión D-03.
 
 Como en M1L1 con Anthropic, Google no expone un tokenizer local: los tokens se leen
 del ``usage_metadata`` de la respuesta, después de la llamada.
+
+Tool calling (M1L3, D-57): igual que el ejemplo del profesor (``L3/orbitair/contrato.py``), el schema
+va en ``FunctionDeclaration(parameters_json_schema=...)``, ``mode="ANY"`` con un único nombre permitido
+obliga al modelo a llamar a esa función, y ``automatic_function_calling`` desactivado evita que el SDK
+intente ejecutar algo. Gemini entrega los argumentos ya como dict (como Anthropic en la lección).
 """
 
 from __future__ import annotations
 
+import json
 import re
 import time
 from typing import Any
@@ -30,7 +36,9 @@ from .base import (
     ProviderTimeoutError,
     RateLimitError,
     ServerError,
+    TOOL_NO_CALL,
     TokenCallback,
+    ToolSpec,
 )
 
 
@@ -85,7 +93,25 @@ class GeminiProvider(LLMProvider):
         # timeout en milisegundos. Sin retry_options: los reintentos los maneja src/retry.py.
         self._client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=int(timeout_s * 1000)))
 
-    def complete(self, prompt: str, system: str, *, on_token: TokenCallback | None = None) -> LLMResponse:
+    def _tool_config(self, system: str, tool: ToolSpec) -> types.GenerateContentConfig:
+        declaration = types.FunctionDeclaration(
+            name=tool.name, description=tool.description, parameters_json_schema=tool.parameters
+        )
+        return types.GenerateContentConfig(
+            system_instruction=system,
+            temperature=self.temperature,
+            max_output_tokens=self.max_tokens,
+            tools=[types.Tool(function_declarations=[declaration])],
+            # mode="ANY" + un solo nombre permitido = el modelo está obligado a llamar a esta función.
+            tool_config=types.ToolConfig(function_calling_config=types.FunctionCallingConfig(
+                mode="ANY", allowed_function_names=[tool.name])),
+            # Solo queremos los argumentos: que el SDK no intente ejecutar ninguna función.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
+        )
+
+    def complete(
+        self, prompt: str, system: str, *, on_token: TokenCallback | None = None, tool: ToolSpec | None = None
+    ) -> LLMResponse:
         config = types.GenerateContentConfig(
             system_instruction=system,
             temperature=self.temperature,
@@ -94,8 +120,22 @@ class GeminiProvider(LLMProvider):
         start = time.perf_counter()
         emitted = False
         ttft: float | None = None
+        tool_args: dict | None = None
+        tool_error: str | None = None
         try:
-            if on_token is None:
+            if tool is not None:
+                resp = self._client.models.generate_content(
+                    model=self.model, contents=prompt, config=self._tool_config(system, tool))
+                calls = resp.function_calls or []
+                if calls:
+                    tool_args = dict(calls[0].args or {})
+                    text = json.dumps(tool_args, ensure_ascii=False)
+                else:
+                    tool_error = TOOL_NO_CALL
+                    text = _text_parts(resp)
+                meta = resp.usage_metadata
+                finish = _finish_reason(resp)
+            elif on_token is None:
                 resp = self._client.models.generate_content(model=self.model, contents=prompt, config=config)
                 text = resp.text or ""
                 meta = resp.usage_metadata
@@ -135,7 +175,7 @@ class GeminiProvider(LLMProvider):
             raise
 
         latency = time.perf_counter() - start
-        if not text.strip():
+        if tool is None and not text.strip():
             raise EmptyResponseError(self.name, f"Respuesta vacía (finish_reason={finish})")
 
         input_tokens, output_tokens, total = _usage(meta)
@@ -149,7 +189,18 @@ class GeminiProvider(LLMProvider):
             latency_s=latency,
             finish_reason=finish,
             ttft_s=ttft,
+            tool_args=tool_args,
+            tool_error=tool_error,
         )
+
+
+def _text_parts(resp: Any) -> str:
+    """Texto de la respuesta sin pasar por ``resp.text`` (que avisa si hay partes que no son texto)."""
+    try:
+        parts = resp.candidates[0].content.parts or []
+    except (AttributeError, IndexError, TypeError):
+        return ""
+    return " ".join(p.text for p in parts if getattr(p, "text", None))
 
 
 def _finish_reason(resp: Any) -> str | None:

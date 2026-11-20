@@ -7,10 +7,17 @@ modelo de razonamiento y se usa con ``reasoning_effort="none"`` (ver docs/DECISI
 Fuentes: M1L1 · Familias de modelos (Hello World con ``chat.completions.create``),
 Streaming (``stream_options={"include_usage": True}``; sin esto el usage llega vacío),
 Costo por token (los tokens salen del campo ``usage``).
+
+Tool calling (M1L3 · Tool use, D-57): ``tools`` + ``tool_choice`` con el nombre de la función obligan
+al modelo a llamarla. OpenAI entrega ``arguments`` como **string JSON**: hay que hacer ``json.loads``, que
+puede fallar si llegó cortado (por ejemplo por el tope de tokens). Opcional ``strict`` (D-59): OpenAI
+restringe la generación al schema; según su documentación no es compatible con llamadas en paralelo, por
+eso con ``strict`` se envía ``parallel_tool_calls=False``.
 """
 
 from __future__ import annotations
 
+import json
 import time
 
 import openai
@@ -27,7 +34,11 @@ from .base import (
     QuotaExhaustedError,
     RateLimitError,
     ServerError,
+    TOOL_BAD_JSON,
+    TOOL_NO_CALL,
+    TOOL_NOT_OBJECT,
     TokenCallback,
+    ToolSpec,
 )
 
 
@@ -44,17 +55,39 @@ class OpenAIProvider(LLMProvider):
     name = "openai"
 
     def __init__(
-        self, api_key: str, model: str, max_tokens: int, temperature: float, timeout_s: float, reasoning_effort: str = ""
+        self,
+        api_key: str,
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        timeout_s: float,
+        reasoning_effort: str = "",
+        strict_tools: bool = False,
     ):
         super().__init__(model, max_tokens, temperature, timeout_s)
         if not api_key:
             raise AuthError(self.name, "Falta OPENAI_API_KEY en el .env")
         self.reasoning_effort = reasoning_effort
+        self.strict_tools = strict_tools
         # max_retries=0: los reintentos los maneja src/retry.py (con la política de M1L1),
         # así no se suman los reintentos internos del SDK.
         self._client = openai.OpenAI(api_key=api_key, max_retries=0, timeout=timeout_s)
 
-    def complete(self, prompt: str, system: str, *, on_token: TokenCallback | None = None) -> LLMResponse:
+    def _tool_params(self, tool: ToolSpec) -> dict:
+        function = {"name": tool.name, "description": tool.description, "parameters": tool.parameters}
+        params = {
+            "tools": [{"type": "function", "function": function}],
+            # Obliga a llamar a ESTA función (equivale a mode="ANY" de Gemini).
+            "tool_choice": {"type": "function", "function": {"name": tool.name}},
+        }
+        if self.strict_tools:
+            function["strict"] = True
+            params["parallel_tool_calls"] = False
+        return params
+
+    def complete(
+        self, prompt: str, system: str, *, on_token: TokenCallback | None = None, tool: ToolSpec | None = None
+    ) -> LLMResponse:
         messages = [
             {"role": "system", "content": system},
             {"role": "user", "content": prompt},
@@ -71,8 +104,22 @@ class OpenAIProvider(LLMProvider):
         start = time.perf_counter()
         emitted = False
         ttft: float | None = None
+        tool_args: dict | None = None
+        tool_error: str | None = None
         try:
-            if on_token is None:
+            if tool is not None:
+                resp = self._client.chat.completions.create(**params, **self._tool_params(tool))
+                message = resp.choices[0].message
+                finish = resp.choices[0].finish_reason
+                usage = resp.usage
+                calls = message.tool_calls or []
+                if calls:
+                    text = calls[0].function.arguments or ""  # string JSON (M1L3: OpenAI → string)
+                    tool_args, tool_error = _parse_arguments(text)
+                else:
+                    text = message.content or ""
+                    tool_error = TOOL_NO_CALL
+            elif on_token is None:
                 resp = self._client.chat.completions.create(**params)
                 text = resp.choices[0].message.content or ""
                 finish = resp.choices[0].finish_reason
@@ -118,7 +165,7 @@ class OpenAIProvider(LLMProvider):
             raise ProviderError(self.name, str(exc)) from exc
 
         latency = time.perf_counter() - start
-        if not text.strip():
+        if tool is None and not text.strip():
             raise EmptyResponseError(self.name, f"Respuesta vacía (finish_reason={finish})")
 
         input_tokens = usage.prompt_tokens if usage else 0
@@ -133,4 +180,17 @@ class OpenAIProvider(LLMProvider):
             latency_s=latency,
             finish_reason=finish,
             ttft_s=ttft,
+            tool_args=tool_args,
+            tool_error=tool_error,
         )
+
+
+def _parse_arguments(raw: str) -> tuple[dict | None, str | None]:
+    """Convierte el string JSON de OpenAI en dict. Devuelve (args, None) o (None, motivo)."""
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return None, TOOL_BAD_JSON
+    if not isinstance(data, dict):
+        return None, TOOL_NOT_OBJECT
+    return data, None

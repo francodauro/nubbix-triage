@@ -4,6 +4,7 @@ Uso (desde la raíz del proyecto, con el entorno virtual activo):
     python -m src.comparar                         # todas las versiones, con Gemini
     python -m src.comparar --versiones v1 v2 v4    # solo algunas
     python -m src.comparar --proveedor openai      # con el proveedor pago (tiene costo)
+    python -m src.comparar --versiones v2 v6 --etiqueta l3   # reporte aparte: docs/comparacion_versiones_l3.md
 
 Fuentes:
 - M1L2 · "decidir con datos y no con intuición"; "la pregunta es si mejoró lo suficiente para
@@ -15,6 +16,10 @@ Fuentes:
 Decisiones (docs/DECISIONES.md): set provisional hasta M1L5 (D-45); un solo proveedor fijo y sin
 fallback, con pausa entre llamadas (D-46). La suite de evals completa del PI (≥30 casos, score por
 categoría, umbral) es de M1L5 y vivirá en ``evals/runner.py``.
+
+Desde M1L3: las versiones de salida "contrato" (v6+) se evalúan con ``classify_validated`` (tool call +
+contrato Pydantic + reintentos). La categoría sale del contrato; si se agotan los intentos, el caso cuenta
+como respuesta inválida (no como error de API). Los tokens y la latencia suman todos los intentos.
 """
 
 from __future__ import annotations
@@ -37,7 +42,17 @@ from .llm.factory import build_providers
 from .llm.router import Router
 from .metrics import MetricsLog
 from .parsing import METHOD_FAILED, METHOD_HEURISTIC, metrics_fields, parse_category
-from .prompts import CATEGORIES, PromptError, PromptTemplate, list_versions, load_prompt, render_system, render_user
+from .prompts import (
+    CATEGORIES,
+    OUTPUT_CONTRACT,
+    PromptError,
+    PromptTemplate,
+    list_versions,
+    load_prompt,
+    render_system,
+    render_user,
+)
+from .triage import ContractError, classify_validated
 
 DATASET_PATH = PROJECT_ROOT / "evals" / "dataset.jsonl"
 REPORT_PATH = PROJECT_ROOT / "docs" / "comparacion_versiones.md"
@@ -45,14 +60,16 @@ DETAIL_PATH = PROJECT_ROOT / "docs" / "comparacion_detalle.csv"
 DEFAULT_PROVIDER = "gemini"
 
 
-def output_paths(provider: str) -> tuple[Path, Path]:
+def output_paths(provider: str, tag: str | None = None) -> tuple[Path, Path]:
     """Reporte y CSV de una corrida. Con el proveedor por defecto se usan los nombres de siempre;
     con otro se agrega su nombre (ej. comparacion_versiones_openai.md) para no pisar la comparación
-    principal (D-52)."""
-    if provider == DEFAULT_PROVIDER:
-        return REPORT_PATH, DETAIL_PATH
-    return (REPORT_PATH.with_name(f"{REPORT_PATH.stem}_{provider}.md"),
-            DETAIL_PATH.with_name(f"{DETAIL_PATH.stem}_{provider}.csv"))
+    principal (D-52). ``tag`` agrega otro sufijo (ej. ``l3``), para que una corrida de pocas versiones
+    no pise el reporte completo de M1L2."""
+    suffix = "" if provider == DEFAULT_PROVIDER else f"_{provider}"
+    if tag:
+        suffix += f"_{tag}"
+    return (REPORT_PATH.with_name(f"{REPORT_PATH.stem}{suffix}.md"),
+            DETAIL_PATH.with_name(f"{DETAIL_PATH.stem}{suffix}.csv"))
 LOTS = ("dev", "holdout")
 DATASET_FIELDS = ("id", "texto", "lote", "categoria", "regla", "justificacion")
 
@@ -77,6 +94,7 @@ class Row:
     latencia_s: float
     error: str
     respuesta: str
+    intentos: int = 1  # llamadas al modelo para este caso (M1L3: reintentos del contrato)
 
 
 def load_dataset(path: Path = DATASET_PATH) -> list[dict]:
@@ -109,6 +127,7 @@ def evaluate(
     pause_s: float = 0.0,
     sleep: Callable[[float], None] = time.sleep,
     log: Callable[[str], None] = print,
+    max_attempts: int = 3,
 ) -> list[Row]:
     """Clasifica cada caso con una versión del prompt y lo compara con su etiqueta."""
     system = render_system(template)
@@ -116,6 +135,9 @@ def evaluate(
     for i, case in enumerate(cases):
         if i and pause_s:
             sleep(pause_s)  # D-46: no pasar el límite por minuto del plan gratuito
+        if template.salida == OUTPUT_CONTRACT:
+            rows.append(_evaluate_contract(router, template, case, max_attempts, log))
+            continue
         try:
             resp = router.ask(
                 render_user(template, case["texto"]),
@@ -138,6 +160,32 @@ def evaluate(
     return rows
 
 
+def _evaluate_contract(router: Router, template: PromptTemplate, case: dict, max_attempts: int,
+                       log: Callable[[str], None]) -> Row:
+    """Un caso con una versión de contrato (M1L3)."""
+    def row(obtenida: str, valida: bool, metodo: str, responses: list, error: str = "", respuesta: str = "") -> Row:
+        return Row(template.version, case["id"], case["lote"], case["categoria"], obtenida, obtenida == case["categoria"],
+                   valida, metodo, case["regla"] or "", sum(r.input_tokens for r in responses),
+                   sum(r.output_tokens for r in responses), round(sum(r.latency_s for r in responses), 3), error,
+                   respuesta, max(len(responses), 1))
+    try:
+        outcome = classify_validated(case["texto"], router, template, max_attempts=max_attempts)
+    except AllProvidersFailedError as exc:
+        log(f"  {case['id']}: ERROR {exc}")
+        return row("", False, "error_api", [], error=str(exc)[:200])
+    except ContractError as exc:
+        log(f"  {case['id']} ({case['lote']}): esperada={case['categoria']:<9} contrato inválido tras "
+            f"{len(exc.attempts)} intentos ✗")
+        return row("", False, "contrato_invalido", [a.response for a in exc.attempts])
+    result = outcome.result
+    ok = result.category == case["categoria"]
+    extra = f" · {len(outcome.attempts)} intentos" if len(outcome.attempts) > 1 else ""
+    log(f"  {case['id']} ({case['lote']}): esperada={case['categoria']:<9} obtenida={result.category:<9} "
+        f"{'✓' if ok else '✗'} [tool_call{extra}]")
+    return row(result.category, True, "tool_call", outcome.responses,
+               respuesta=json.dumps(result.model_dump(), ensure_ascii=False))
+
+
 def summarize(rows: list[Row], pricing: Pricing, reference_model: str, scale: int = 10_000) -> dict:
     """Resume una versión. El costo se proyecta con el modelo de referencia (el pago), porque
     con Gemini gratuito el costo real es 0 y no permitiría comparar versiones."""
@@ -157,6 +205,7 @@ def summarize(rows: list[Row], pricing: Pricing, reference_model: str, scale: in
         "invalidas": sum(not r.valida for r in answered),
         "parseo_fragil": sum(r.metodo in (METHOD_HEURISTIC, METHOD_FAILED) for r in answered),
         "errores_api": len(rows) - len(answered),
+        "intentos_medios": statistics.mean(r.intentos for r in answered) if answered else 0.0,
         "tokens_in_medio": avg_in,
         "tokens_out_medio": avg_out,
         "latencia_media_s": statistics.mean(r.latencia_s for r in answered) if answered else 0.0,
@@ -181,22 +230,25 @@ def render_report(summaries: list[dict], rows: list[Row], meta: dict) -> str:
         "> (≥30 casos, score por categoría y umbral).",
         "",
         f"| Versión | Exactitud dev | Exactitud holdout | Inválidas | Parseo frágil | Errores API | "
-        f"Tokens entrada | Tokens salida | Latencia media (s) | USD × 10.000 con `{meta['modelo_ref']}` |",
-        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|",
+        f"Tokens entrada | Tokens salida | Latencia media (s) | Intentos medios | "
+        f"USD × 10.000 con `{meta['modelo_ref']}` |",
+        "|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
     for s in summaries:
         dev, hold = s["aciertos"]["dev"], s["aciertos"]["holdout"]
         lines.append(
             f"| {s['version']} | {_pct(*dev)} | {_pct(*hold)} | {s['invalidas']} | {s['parseo_fragil']} | "
             f"{s['errores_api']} | {s['tokens_in_medio']:.0f} | {s['tokens_out_medio']:.0f} | "
-            f"{s['latencia_media_s']:.2f} | {s['costo_ref_usd']:.2f} |"
+            f"{s['latencia_media_s']:.2f} | {s['intentos_medios']:.2f} | {s['costo_ref_usd']:.2f} |"
         )
     lines += [
         "",
         "Cómo leerla: la *exactitud* se calcula sobre las consultas respondidas (entre paréntesis, aciertos /",
         "respondidas); las que fallaron por la API se cuentan en *errores API* y no como desaciertos.",
-        "*Inválidas* = la respuesta no trajo una de las 4 categorías; *parseo frágil* = la",
-        "categoría se encontró buscándola en texto libre (el formato pedido no se respetó). El costo se",
+        "*Inválidas* = la respuesta no trajo una de las 4 categorías (en las versiones de contrato: se agotaron",
+        "los intentos sin un contrato válido); *parseo frágil* = la categoría se encontró buscándola en texto",
+        "libre (el formato pedido no se respetó). *Intentos medios* = llamadas al modelo por consulta: en las",
+        "versiones de contrato (M1L3) más de 1 significa que hubo reintentos; tokens, latencia y costo los suman. El costo se",
         f"proyecta con los tokens medidos y el precio de `{meta['modelo_ref']}` (`config/pricing.json`),",
         "porque con Gemini gratuito el costo real es 0.",
         "",
@@ -243,6 +295,8 @@ def _parse_args(argv: list[str] | None) -> argparse.Namespace:
                         help="Versiones a comparar (ej. v1 v2). Por defecto, todas las de prompts/.")
     parser.add_argument("--proveedor", choices=["gemini", "openai"], default=DEFAULT_PROVIDER,
                         help="Proveedor fijo para toda la corrida, sin fallback (D-46). Por defecto gemini (gratis).")
+    parser.add_argument("--etiqueta", metavar="NOMBRE",
+                        help="Sufijo para el reporte (ej. l3 → docs/comparacion_versiones_l3.md), así no pisa el completo.")
     parser.add_argument("--pausa", type=float, default=6.0,
                         help="Segundos entre llamadas (por defecto 6 ≈ 10 por minuto, para el plan gratuito).")
     return parser.parse_args(argv)
@@ -287,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     summaries = []
     for template in templates:
         print(f"\n== {template.version} ({template.tecnica})")
-        rows = evaluate(router, template, cases, pause_s=args.pausa)
+        rows = evaluate(router, template, cases, pause_s=args.pausa, max_attempts=settings.contract_max_attempts)
         all_rows += rows
         summaries.append(summarize(rows, pricing, reference_model))
         time.sleep(args.pausa)
@@ -301,7 +355,7 @@ def main(argv: list[str] | None = None) -> int:
         "n_dev": sum(c["lote"] == "dev" for c in cases),
         "n_holdout": sum(c["lote"] == "holdout" for c in cases),
     }
-    report_path, detail_path = output_paths(provider.name)
+    report_path, detail_path = output_paths(provider.name, args.etiqueta)
     report_path.parent.mkdir(parents=True, exist_ok=True)
     report_path.write_text(render_report(summaries, all_rows, meta), encoding="utf-8")
     write_detail(all_rows, detail_path)

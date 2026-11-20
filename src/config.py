@@ -31,6 +31,8 @@ class ProviderSettings:
     max_tokens: int
     # Solo OpenAI: esfuerzo de razonamiento ("none", "low"…). Vacío = no se envía el parámetro.
     reasoning_effort: str = ""
+    # Solo OpenAI: tool calling con strict=True (la generación se restringe al schema, D-59).
+    strict_tools: bool = False
 
 
 @dataclass(frozen=True)
@@ -48,7 +50,10 @@ class Settings:
     metrics_path: Path
     prompts_dir: Path
     # Versión del prompt por defecto (prompts/<version>.yaml); la CLI la pisa con --prompt (D-43, D-48).
-    prompt_version: str = "triage_v2"
+    # triage_v6 desde M1L3 (D-69): la única que produce el contrato del PI. Provisional hasta M1L5.
+    prompt_version: str = "triage_v6"
+    # M1L3: intentos para obtener un contrato válido (el primero + reintentos con el error inyectado, D-60).
+    contract_max_attempts: int = 3
 
 
 def _get(name: str, default: str) -> str:
@@ -72,6 +77,15 @@ def _get_int(name: str, default: int) -> int:
         raise ConfigError(f"{name} debe ser un entero, llegó: {raw!r}") from exc
 
 
+def _get_bool(name: str, default: bool) -> bool:
+    raw = _get(name, "true" if default else "false").lower()
+    if raw in ("1", "true", "si", "sí", "yes"):
+        return True
+    if raw in ("0", "false", "no"):
+        return False
+    raise ConfigError(f"{name} debe ser true o false, llegó: {raw!r}")
+
+
 def load_settings(env_file: Path | None = None) -> Settings:
     """Lee el ``.env`` de la raíz del proyecto y devuelve la configuración validada."""
     load_dotenv(env_file or PROJECT_ROOT / ".env")
@@ -87,8 +101,11 @@ def load_settings(env_file: Path | None = None) -> Settings:
             name="openai",
             api_key=_get("OPENAI_API_KEY", ""),
             model=_get("OPENAI_MODEL", "gpt-6-luna"),
-            max_tokens=_get_int("OPENAI_MAX_TOKENS", 200),
+            # 400 desde M1L3 (D-65): ahora el modelo escribe una respuesta además de la categoría y, si los
+            # argumentos de la tool call se cortan, el JSON queda inválido. Solo se paga lo que se usa.
+            max_tokens=_get_int("OPENAI_MAX_TOKENS", 400),
             reasoning_effort=_get("OPENAI_REASONING_EFFORT", "none").lower(),
+            strict_tools=_get_bool("OPENAI_STRICT_TOOLS", True),
         ),
     }
 
@@ -107,6 +124,10 @@ def load_settings(env_file: Path | None = None) -> Settings:
     if not 0.0 <= temperature <= 2.0:
         raise ConfigError("LLM_TEMPERATURE debe estar entre 0.0 y 2.0")
 
+    contract_max_attempts = _get_int("CONTRACT_MAX_ATTEMPTS", 3)
+    if contract_max_attempts < 1:
+        raise ConfigError("CONTRACT_MAX_ATTEMPTS debe ser al menos 1")
+
     return Settings(
         providers=providers,
         provider_order=order,
@@ -118,5 +139,6 @@ def load_settings(env_file: Path | None = None) -> Settings:
         pricing_path=PROJECT_ROOT / "config" / "pricing.json",
         metrics_path=PROJECT_ROOT / "data" / "metrics.jsonl",
         prompts_dir=PROJECT_ROOT / "prompts",
-        prompt_version=_get("PROMPT_VERSION", "triage_v2"),
+        prompt_version=_get("PROMPT_VERSION", "triage_v6"),
+        contract_max_attempts=contract_max_attempts,
     )

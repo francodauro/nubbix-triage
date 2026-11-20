@@ -5,3 +5,5 @@ google-genai==3.5.0
 python-dotenv==1.2.3
 # Lectura de los prompts versionados en YAML (M1L2 / PI; D-35). Se usa yaml.safe_load.
 PyYAML==6.0.3
+# Contrato de salida validado (M1L3; D-54). Ya venía instalada como dependencia de los SDKs: se fija acá.
+pydantic==2.14.3

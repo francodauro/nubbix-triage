@@ -14,8 +14,11 @@ Esquema de cada ``prompts/<version>.yaml`` (D-34):
     fecha:       fecha de creación
     tecnica:     zero-shot, few-shot, chain-of-thought…
     descripcion: qué tiene esta versión (el porqué va en prompts/CHANGELOG.md)
-    system:      plantilla del system prompt; puede usar {empresa} y {categorias}
+    system:      plantilla del system prompt; puede usar {empresa}, {categorias} y {acciones}
     user:        plantilla del mensaje de usuario; debe usar {consulta}
+    salida:      (opcional, desde M1L3) "texto" (por defecto: v1…v5, la categoría se lee del texto
+                 con src/parsing.py) o "contrato" (v6 en adelante: tool calling + contrato Pydantic,
+                 src/contract.py). Una versión "contrato" debe usar {acciones} (D-64).
 Las llaves literales (por ejemplo las del JSON de respuesta) se escriben dobles: {{ }}.
 """
 
@@ -38,13 +41,32 @@ CATEGORIES: dict[str, str] = {
     "other": "cualquier consulta que no encaje en las anteriores: información comercial o general",
 }
 
+# Acciones que el sistema le puede sugerir al agente humano (campo ``actions`` del contrato, M1L3).
+# Única fuente de verdad, igual que CATEGORIES: de acá salen el contrato Pydantic (src/contract.py),
+# el schema de la tool call y el texto {acciones} del prompt. La lista la eligió el alumno (opción B,
+# D-55): las primeras cinco acompañan a una categoría y las tres últimas sirven para cualquiera.
+ACTIONS: dict[str, str] = {
+    "review_charge": "revisar un cobro, un cobro duplicado o un pedido de devolución",
+    "resend_invoice": "reenviar o corregir una factura emitida por Nubbix",
+    "investigate_incident": "investigar una falla técnica: error, caída, lentitud o una integración que no funciona",
+    "manage_access": "gestionar usuarios, roles, permisos o el acceso a la cuenta",
+    "contact_sales": "derivar a ventas una consulta comercial: planes, precios, descuentos o condiciones",
+    "request_more_info": "pedirle al cliente los datos que faltan para poder avanzar",
+    "escalate_to_human": "pasar el caso de inmediato a una persona: urgencia, riesgo para el negocio del cliente o cliente muy molesto",
+    "no_action": "no hace falta ninguna acción (va sola, nunca combinada con otras)",
+}
+NO_ACTION = "no_action"
+
 # Variables fijas del negocio (no cambian por request, pero tampoco viven en la plantilla).
 FIXED_VARIABLES = {"empresa": "Nubbix"}
 
-SYSTEM_VARIABLES = {"empresa", "categorias"}
+SYSTEM_VARIABLES = {"empresa", "categorias", "acciones"}
 USER_VARIABLES = {"consulta"}
 REQUIRED_FIELDS = ("version", "fecha", "tecnica", "descripcion", "system", "user")
 PREFIX = "triage_"
+OUTPUT_TEXT = "texto"          # v1…v5: la categoría se lee del texto (src/parsing.py)
+OUTPUT_CONTRACT = "contrato"   # v6+: tool calling + contrato Pydantic (src/contract.py, M1L3)
+OUTPUT_MODES = (OUTPUT_TEXT, OUTPUT_CONTRACT)
 
 
 class PromptError(Exception):
@@ -60,6 +82,7 @@ class PromptTemplate:
     system: str
     user: str
     path: Path
+    salida: str = OUTPUT_TEXT  # M1L3: "texto" o "contrato"
 
 
 def normalize_version(version: str) -> str:
@@ -75,6 +98,10 @@ def list_versions(prompts_dir: Path) -> list[str]:
 
 def format_categories(categories: dict[str, str] = CATEGORIES) -> str:
     return "\n".join(f"- {name}: {description}" for name, description in categories.items())
+
+
+def format_actions(actions: dict[str, str] = ACTIONS) -> str:
+    return "\n".join(f"- {name}: {description}" for name, description in actions.items())
 
 
 def _fields(template: str) -> set[str]:
@@ -117,6 +144,12 @@ def load_prompt(version: str, prompts_dir: Path) -> PromptTemplate:
     if user_fields != USER_VARIABLES:
         raise PromptError(f"{path.name}: el user debe usar solo {{consulta}}; usa {sorted(user_fields)}")
 
+    salida = str(data.get("salida") or OUTPUT_TEXT).strip()
+    if salida not in OUTPUT_MODES:
+        raise PromptError(f"{path.name}: salida={salida!r} no es válida. Opciones: {OUTPUT_MODES}")
+    if salida == OUTPUT_CONTRACT and "acciones" not in _fields(system):
+        raise PromptError(f"{path.name}: una versión de salida \"contrato\" debe listar las acciones con {{acciones}}")
+
     return PromptTemplate(
         version=version,
         fecha=str(data["fecha"]),
@@ -125,12 +158,13 @@ def load_prompt(version: str, prompts_dir: Path) -> PromptTemplate:
         system=system,
         user=user,
         path=path,
+        salida=salida,
     )
 
 
 def render_system(template: PromptTemplate, **overrides: str) -> str:
     """Completa la plantilla del system con las variables fijas y las categorías."""
-    values = {**FIXED_VARIABLES, "categorias": format_categories(), **overrides}
+    values = {**FIXED_VARIABLES, "categorias": format_categories(), "acciones": format_actions(), **overrides}
     return template.system.format(**values).strip()
 
 

@@ -6,8 +6,10 @@ Fuentes:
 - Ejemplo del profesor (``L2/orbitair/orbitair/clasificacion.py``): intentar en orden de
   confiabilidad JSON → última línea ``CATEGORIA:`` → buscar un nombre válido suelto.
 
-Provisional hasta M1L3 (D-41, D-42): ahí la salida pasa a ser un contrato validado con
-Pydantic y un error de formato se reintenta. Hoy una categoría inválida solo se marca.
+Desde M1L3 este parser se usa solo con las versiones de salida "texto" (v1…v5), que se conservan para
+comparar. Las versiones de salida "contrato" (v6+) no se parsean: llegan por tool calling y se validan
+con el contrato Pydantic (src/contract.py), con reintento (src/triage.py). D-41 y D-42 quedan cerradas
+por D-68.
 """
 
 from __future__ import annotations
